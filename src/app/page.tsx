@@ -3,7 +3,7 @@ import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
 import ConsultationForm from "@/components/site/ConsultationForm";
 import { createClient } from "@/lib/supabase/server";
-import { categoryTagClass, type Post } from "@/lib/posts";
+import { categoryTagClass, postThumbnail, type Post } from "@/lib/posts";
 import { formatKst } from "@/lib/format";
 
 const GRADE_TABLE = [
@@ -334,11 +334,12 @@ export default async function Home() {
           <div className="wrap">
             <div className="news-head">
               <div>
+                <div className="eyebrow">BLOG &amp; NEWS</div>
                 <h2
                   style={{
-                    fontSize: 30,
+                    fontSize: 32,
                     color: "var(--pine-deep)",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     marginBottom: 8,
                   }}
                 >
@@ -366,7 +367,9 @@ export default async function Home() {
                     href={`/news/${post.id}`}
                     style={{ display: "block" }}
                   >
-                    <div className="news-thumb">{post.category}</div>
+                    <div className="news-thumb">
+                      <img src={postThumbnail(post)} alt={post.title} />
+                    </div>
                     <div className="news-body">
                       <div className="news-meta">
                         <span className={`news-tag ${categoryTagClass(post.category)}`}>

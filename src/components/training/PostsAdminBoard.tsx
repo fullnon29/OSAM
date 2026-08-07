@@ -13,6 +13,7 @@ type FormState = {
   content: string;
   read_minutes: string;
   is_published: boolean;
+  thumbnail_url: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -22,6 +23,7 @@ const EMPTY_FORM: FormState = {
   content: "",
   read_minutes: "",
   is_published: true,
+  thumbnail_url: "",
 };
 
 export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
@@ -44,6 +46,7 @@ export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
       content: post.content,
       read_minutes: post.read_minutes ? String(post.read_minutes) : "",
       is_published: post.is_published,
+      thumbnail_url: post.thumbnail_url ?? "",
     });
     setError(null);
   }
@@ -64,6 +67,7 @@ export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
       content: form.content,
       read_minutes: form.read_minutes ? Number(form.read_minutes) : null,
       is_published: form.is_published,
+      thumbnail_url: form.thumbnail_url,
     };
 
     const res = await fetch(
@@ -183,6 +187,14 @@ export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
                 </option>
               ))}
             </select>
+
+            <label>대표 이미지 URL (선택, 비워두면 카테고리 기본 이미지 사용)</label>
+            <input
+              type="text"
+              placeholder="https://..."
+              value={form.thumbnail_url}
+              onChange={(e) => setForm({ ...form, thumbnail_url: e.target.value })}
+            />
 
             <label>요약 (목록 카드에 표시)</label>
             <textarea

@@ -14,7 +14,7 @@ export async function PATCH(
   const { id } = await params;
 
   const body = await request.json();
-  const { title, category, excerpt, content, read_minutes, is_published } = body;
+  const { title, category, excerpt, content, read_minutes, is_published, thumbnail_url } = body;
 
   if (!title?.trim() || !content?.trim()) {
     return NextResponse.json({ error: "제목과 본문은 필수입니다." }, { status: 400 });
@@ -32,6 +32,7 @@ export async function PATCH(
       content: content.trim(),
       read_minutes: read_minutes || null,
       is_published: is_published ?? true,
+      thumbnail_url: thumbnail_url?.trim() || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)

@@ -2,7 +2,7 @@ import Link from "next/link";
 import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
 import { createClient } from "@/lib/supabase/server";
-import { categoryTagClass, type Post } from "@/lib/posts";
+import { categoryTagClass, postThumbnail, type Post } from "@/lib/posts";
 import { formatKst } from "@/lib/format";
 
 export default async function NewsListPage() {
@@ -22,6 +22,7 @@ export default async function NewsListPage() {
         <section className="band-light">
           <div className="wrap">
             <div className="section-head">
+              <div className="eyebrow">BLOG &amp; NEWS</div>
               <h2>오샘의 소식과 요양 정보</h2>
               <p>센터의 새로운 소식과 어르신 건강·복지 정보를 모아봅니다.</p>
             </div>
@@ -37,7 +38,9 @@ export default async function NewsListPage() {
                     href={`/news/${post.id}`}
                     style={{ display: "block" }}
                   >
-                    <div className="news-thumb">{post.category}</div>
+                    <div className="news-thumb">
+                      <img src={postThumbnail(post)} alt={post.title} />
+                    </div>
                     <div className="news-body">
                       <div className="news-meta">
                         <span className={`news-tag ${categoryTagClass(post.category)}`}>

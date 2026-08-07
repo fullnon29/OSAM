@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
 import { createClient } from "@/lib/supabase/server";
-import { categoryTagClass, type Post } from "@/lib/posts";
+import { categoryTagClass, postThumbnail, type Post } from "@/lib/posts";
 import { formatKst } from "@/lib/format";
 
 export default async function NewsDetailPage({
@@ -32,7 +32,21 @@ export default async function NewsDetailPage({
             <Link className="btn-ghost" href="/news" style={{ marginBottom: 24, display: "inline-flex" }}>
               ← 목록으로
             </Link>
-            <div className="news-meta" style={{ marginTop: 20 }}>
+            <div
+              style={{
+                aspectRatio: "16/9",
+                borderRadius: 20,
+                overflow: "hidden",
+                margin: "20px 0",
+              }}
+            >
+              <img
+                src={postThumbnail(p)}
+                alt={p.title}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            </div>
+            <div className="news-meta">
               <span className={`news-tag ${categoryTagClass(p.category)}`}>
                 {p.category}
               </span>
