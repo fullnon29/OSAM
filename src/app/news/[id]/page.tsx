@@ -23,6 +23,20 @@ export default async function NewsDetailPage({
   if (!post) notFound();
   const p = post as Post;
 
+  const { data: allPosts } = await supabase
+    .from("posts")
+    .select("id, title, published_at")
+    .eq("is_published", true)
+    .order("published_at", { ascending: true });
+
+  const ordered = allPosts ?? [];
+  const currentIndex = ordered.findIndex((item) => item.id === p.id);
+  const prevPost = currentIndex > 0 ? ordered[currentIndex - 1] : null;
+  const nextPost =
+    currentIndex >= 0 && currentIndex < ordered.length - 1
+      ? ordered[currentIndex + 1]
+      : null;
+
   return (
     <>
       <Header />
@@ -75,6 +89,38 @@ export default async function NewsDetailPage({
               }}
             >
               {p.content}
+            </div>
+
+            <div className="article-cta">
+              <div className="article-cta-text">
+                <p className="q">이 글이 도움이 되셨나요?</p>
+                <p className="a">오샘재가복지센터에서 무료 상담을 받아보세요.</p>
+              </div>
+              <div className="article-cta-actions">
+                <Link className="btn-primary" href="/#contact">
+                  💬 무료 상담 신청
+                </Link>
+                <a className="btn-ghost" href="tel:051-637-7355">
+                  📞 051-637-7355
+                </a>
+              </div>
+            </div>
+
+            <div className="article-nav">
+              {prevPost ? (
+                <Link href={`/news/${prevPost.id}`}>
+                  <span className="lbl">← 이전 글</span>
+                  {prevPost.title}
+                </Link>
+              ) : (
+                <span />
+              )}
+              {nextPost && (
+                <Link className="next" href={`/news/${nextPost.id}`}>
+                  <span className="lbl">다음 글 →</span>
+                  {nextPost.title}
+                </Link>
+              )}
             </div>
           </div>
         </section>
