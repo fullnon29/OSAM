@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import CertModal, { type CertInfo } from "./CertModal";
 import { formatKst, toKstInputValue } from "@/lib/format";
 
@@ -116,6 +117,9 @@ export default function AdminBoard({
           <h1>관리자 · 교육 이수 관리</h1>
           <p>교육을 선택하면 전 종사자의 이수 현황을 확인하고 완료 시각을 수정할 수 있습니다.</p>
         </div>
+        <Link className="btn small" href="/training/admin/posts">
+          소식·정보 글 관리
+        </Link>
       </div>
 
       <select

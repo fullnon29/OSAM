@@ -1,36 +1,10 @@
+import Link from "next/link";
 import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
 import ConsultationForm from "@/components/site/ConsultationForm";
-
-const NEWS_ITEMS = [
-  {
-    thumb: "센터 소식 사진 영역",
-    tag: "센터 소식",
-    tagClass: "",
-    date: "2026.07.01",
-    title: "2026년 하반기 오샘재가복지센터 신규 요양보호사 모집 안내",
-    desc: "오샘재가복지센터에서 어르신과 함께할 따뜻한 마음을 가진 요양보호사 선생님을 모십니다.",
-    read: "4분",
-  },
-  {
-    thumb: "요양 정보 사진 영역",
-    tag: "요양 정보",
-    tagClass: "tag-info",
-    date: "2026.06.20",
-    title: "장기요양등급, 어떻게 신청하고 어떤 혜택을 받을 수 있을까요?",
-    desc: "등급 신청 방법과 단계별 혜택, 본인부담금까지 한눈에 정리해 드립니다.",
-    read: "6분",
-  },
-  {
-    thumb: "건강 팁 사진 영역",
-    tag: "건강 팁",
-    tagClass: "tag-tip",
-    date: "2026.06.10",
-    title: "무더운 여름철, 어르신 건강을 지키는 생활 수칙",
-    desc: "여름철 폭염은 어르신 건강에 치명적일 수 있습니다. 실천할 수 있는 예방법을 알려드립니다.",
-    read: "5분",
-  },
-];
+import { createClient } from "@/lib/supabase/server";
+import { categoryTagClass, type Post } from "@/lib/posts";
+import { formatKst } from "@/lib/format";
 
 const GRADE_TABLE = [
   ["1등급", "전적으로 다른 사람의 도움이 필요한 상태", "95점 이상"],
@@ -75,7 +49,16 @@ const FAQS = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: posts } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("is_published", true)
+    .order("published_at", { ascending: false })
+    .limit(3);
+  const newsItems = (posts ?? []) as Post[];
+
   return (
     <>
       <Header />
@@ -367,37 +350,45 @@ export default function Home() {
                   전해 드립니다.
                 </p>
               </div>
-              <button className="btn-ghost" type="button">
+              <Link className="btn-ghost" href="/news">
                 전체 글 보기 →
-              </button>
+              </Link>
             </div>
 
-            <div className="news-grid">
-              {NEWS_ITEMS.map((item) => (
-                <div className="news-card" key={item.title}>
-                  <div className="news-thumb">{item.thumb}</div>
-                  <div className="news-body">
-                    <div className="news-meta">
-                      <span className={`news-tag ${item.tagClass}`}>
-                        {item.tag}
-                      </span>
-                      <span className="news-date">{item.date}</span>
+            {newsItems.length === 0 ? (
+              <div className="empty-note">아직 등록된 글이 없습니다.</div>
+            ) : (
+              <div className="news-grid">
+                {newsItems.map((post) => (
+                  <Link
+                    className="news-card"
+                    key={post.id}
+                    href={`/news/${post.id}`}
+                    style={{ display: "block" }}
+                  >
+                    <div className="news-thumb">{post.category}</div>
+                    <div className="news-body">
+                      <div className="news-meta">
+                        <span className={`news-tag ${categoryTagClass(post.category)}`}>
+                          {post.category}
+                        </span>
+                        <span className="news-date">
+                          {formatKst(post.published_at).slice(0, 10)}
+                        </span>
+                      </div>
+                      <h3>{post.title}</h3>
+                      {post.excerpt && <p>{post.excerpt}</p>}
+                      <div className="news-foot">
+                        <span>
+                          {post.read_minutes ? `⏱ ${post.read_minutes}분` : ""}
+                        </span>
+                        <span className="read">더 읽기 →</span>
+                      </div>
                     </div>
-                    <h3>{item.title}</h3>
-                    <p>{item.desc}</p>
-                    <div className="news-foot">
-                      <span>⏱ {item.read}</span>
-                      <span className="read">더 읽기 →</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="news-auto-note">
-              🔄 새 글은 자동으로 요약되어 이 목록에 반영됩니다 (실제 서비스
-              연동 시)
-            </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
