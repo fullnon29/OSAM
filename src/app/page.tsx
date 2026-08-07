@@ -2,6 +2,7 @@ import Link from "next/link";
 import Header from "@/components/site/Header";
 import Footer from "@/components/site/Footer";
 import ConsultationForm from "@/components/site/ConsultationForm";
+import NaverMap from "@/components/site/NaverMap";
 import { createClient } from "@/lib/supabase/server";
 import { categoryTagClass, postThumbnail, type Post } from "@/lib/posts";
 import { formatKst } from "@/lib/format";
@@ -474,9 +475,7 @@ export default async function Home() {
                 <div className="k">이메일</div>
                 <div>jojo5506@naver.com</div>
               </div>
-              <div className="map-box">
-                지도 영역 (네이버/카카오 지도 연동 위치)
-              </div>
+              <NaverMap />
             </div>
             <div>
               <ConsultationForm />

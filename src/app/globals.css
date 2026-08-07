@@ -178,7 +178,7 @@ details p{font-size:13.3px; color:var(--ink-soft); margin-top:10px;}
 .contact-info h2{font-size:28px; color:var(--pine-deep); margin-bottom:18px; font-weight:600;}
 .info-line{display:flex; gap:14px; padding:13px 0; border-bottom:1px solid var(--line); font-size:14px;}
 .info-line .k{width:76px; color:var(--ink-soft); font-weight:600; flex-shrink:0;}
-.map-box{border-radius:16px; background:repeating-linear-gradient(45deg, var(--white), var(--white) 12px, var(--paper) 12px, var(--paper) 24px); border:1px solid var(--line); min-height:200px; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-size:13px; margin-top:14px;}
+.map-box{border-radius:16px; background:repeating-linear-gradient(45deg, var(--white), var(--white) 12px, var(--paper) 12px, var(--paper) 24px); border:1px solid var(--line); min-height:280px; overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-size:13px; margin-top:14px;}
 form{display:flex; flex-direction:column; gap:11px;}
 input, textarea, select{width:100%; padding:13px 15px; border:1px solid var(--line); border-radius:10px; font-size:13.7px; font-family:inherit; background:var(--white); color:var(--ink);}
 input:focus, textarea:focus, select:focus{outline:2px solid var(--pine); outline-offset:1px;}
