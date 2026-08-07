@@ -119,6 +119,7 @@ export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
             <th>제목</th>
             <th>카테고리</th>
             <th>공개 여부</th>
+            <th>출처</th>
             <th>작성일</th>
             <th></th>
           </tr>
@@ -126,7 +127,7 @@ export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
         <tbody>
           {posts.length === 0 && (
             <tr>
-              <td colSpan={5} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
+              <td colSpan={6} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
                 등록된 글이 없습니다.
               </td>
             </tr>
@@ -139,6 +140,20 @@ export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
                 <span className={`status ${post.is_published ? "done" : "todo"}`}>
                   {post.is_published ? "공개" : "비공개"}
                 </span>
+              </td>
+              <td>
+                {post.source === "nhis" ? (
+                  <a
+                    href={post.source_url ?? undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "var(--ochre)", fontWeight: 700, fontSize: 12.5 }}
+                  >
+                    자동수집(공단) ↗
+                  </a>
+                ) : (
+                  <span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>직접 작성</span>
+                )}
               </td>
               <td>{formatKst(post.created_at)}</td>
               <td style={{ display: "flex", gap: 10 }}>

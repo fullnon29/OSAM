@@ -9,6 +9,8 @@ export type Post = {
   published_at: string;
   created_at: string;
   thumbnail_url: string | null;
+  source: string | null;
+  source_url: string | null;
 };
 
 export const POST_CATEGORIES = ["센터 소식", "요양 정보", "건강 팁"] as const;

@@ -3,9 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 
+type NaverMaps = {
+  maps: {
+    LatLng: new (lat: number, lng: number) => unknown;
+    Map: new (el: HTMLElement, options: { center: unknown; zoom: number }) => unknown;
+    Marker: new (options: { position: unknown; map: unknown }) => unknown;
+  };
+};
+
 declare global {
   interface Window {
-    naver: any;
+    naver: NaverMaps;
   }
 }
 
