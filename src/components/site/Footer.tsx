@@ -3,7 +3,7 @@ export default function Footer() {
     <footer>
       <div className="wrap footer-grid">
         <div>
-          <a className="logo" href="#top">
+          <a className="logo" href="/#top">
             <span className="mark" />
             오샘재가복지센터
           </a>
