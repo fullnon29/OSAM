@@ -76,24 +76,32 @@ export default function RecipientDetailBoard({
         <div className="empty-note">아직 작성된 욕구조사기록지가 없습니다.</div>
       )}
       {assessments.map((a) => (
-        <Link
-          className="assess-round-card"
-          key={a.id}
-          href={`/assessment/recipients/${recipient.id}/assessments/${a.id}`}
-        >
-          <div>
+        <div className="assess-round-card" key={a.id}>
+          <Link
+            href={`/assessment/recipients/${recipient.id}/assessments/${a.id}`}
+            style={{ color: "inherit", textDecoration: "none" }}
+          >
             <span className="round-no">{a.round_no}회차</span>
             <span style={{ marginLeft: 10, fontSize: 13, color: "var(--ink-soft)" }}>
               작성(방문사정)일 {a.assessed_at}
             </span>
-          </div>
+          </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {a.status === "completed" && (
+              <a
+                className="btn outline small"
+                style={{ width: "auto", padding: "6px 14px", fontSize: 12.5 }}
+                href={`/api/assessment/assessments/${a.id}/docx`}
+              >
+                다운로드 (.docx)
+              </a>
+            )}
             <span className={`status ${a.status === "completed" ? "done" : "todo"}`}>
               {a.status === "completed" ? "완료" : "작성중"}
             </span>
             <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{formatKst(a.created_at)}</span>
           </div>
-        </Link>
+        </div>
       ))}
     </div>
   );
