@@ -277,3 +277,24 @@ table.admin-table tbody tr:hover{background:var(--paper);}
 .edit-modal-box{max-width:360px; text-align:left; padding:30px 28px;}
 .edit-modal-box label{font-size:12.5px; color:var(--ink-soft); font-weight:600; display:block; margin-bottom:6px; margin-top:14px;}
 .edit-modal-box input, .edit-modal-box textarea{width:100%; padding:11px 13px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; font-family:inherit;}
+
+/* ============ 욕구사정 폼 ============ */
+.assess-section{margin-bottom:20px;}
+.assess-section-note{font-size:12.5px; color:var(--ink-soft); margin:-8px 0 16px;}
+.assess-group-title{font-size:14px; font-weight:700; color:var(--pine-deep); margin:22px 0 12px; padding-top:16px; border-top:1px dashed var(--line);}
+.assess-group-title:first-of-type{margin-top:0; padding-top:0; border-top:none;}
+.assess-field{margin-bottom:16px;}
+.assess-field label{display:block; font-size:13px; font-weight:600; color:var(--ink); margin-bottom:8px;}
+.assess-field input[type="text"], .assess-field input[type="number"], .assess-field textarea{
+  width:100%; padding:10px 13px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; font-family:inherit; background:var(--white);
+}
+.assess-field textarea{min-height:70px; resize:vertical;}
+.assess-pill-group{display:flex; gap:8px; flex-wrap:wrap;}
+.assess-pill{font-size:12.8px; font-weight:600; padding:8px 14px; border-radius:100px; border:1px solid var(--line); background:var(--white); color:var(--ink-soft); cursor:pointer; transition:all .15s;}
+.assess-pill:hover{border-color:var(--ochre);}
+.assess-pill.active{background:var(--pine-deep); color:var(--white); border-color:var(--pine-deep);}
+.assess-round-card{background:var(--white); border:1px solid var(--line); border-radius:14px; padding:18px 22px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;}
+.assess-round-card .round-no{font-family:'Noto Serif KR',serif; font-weight:700; color:var(--pine-deep); font-size:16px;}
+.summary-box{background:var(--white); border:1px solid var(--ochre-soft); border-radius:12px; padding:18px 20px; margin-bottom:14px;}
+.summary-box h4{font-size:13px; color:var(--ochre); margin-bottom:8px;}
+.summary-box p{font-size:13.5px; color:var(--ink); line-height:1.8; white-space:pre-wrap;}

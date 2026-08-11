@@ -30,9 +30,10 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isTrainingPath = request.nextUrl.pathname.startsWith("/training");
+  const isAssessmentPath = request.nextUrl.pathname.startsWith("/assessment");
   const isLoginPath = request.nextUrl.pathname === "/training/login";
 
-  if (isTrainingPath && !isLoginPath && !user) {
+  if ((isTrainingPath || isAssessmentPath) && !isLoginPath && !user) {
     const loginUrl = new URL("/training/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
@@ -45,5 +46,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/training/:path*"],
+  matcher: ["/training/:path*", "/assessment/:path*"],
 };

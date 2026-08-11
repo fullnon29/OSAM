@@ -22,8 +22,8 @@ export default async function EmployeesAdminPage() {
 
   const { data: employees } = await supabase
     .from("profiles")
-    .select("id, employee_no, name, dept, hired_at, is_active, created_at")
-    .eq("role", "employee")
+    .select("id, employee_no, name, dept, hired_at, is_active, created_at, role")
+    .neq("role", "admin")
     .order("name");
 
   return (

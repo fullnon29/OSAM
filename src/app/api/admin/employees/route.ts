@@ -15,6 +15,7 @@ export async function POST(request: Request) {
   const password = String(body.password ?? "");
   const dept = body.dept ? String(body.dept).trim() : null;
   const hiredAt = body.hired_at ? String(body.hired_at) : null;
+  const role = body.role === "social_worker" ? "social_worker" : "employee";
 
   if (!name || !username || !password) {
     return NextResponse.json(
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       name,
       dept,
       hired_at: hiredAt,
-      role: "employee",
+      role,
       is_active: true,
     })
     .select()

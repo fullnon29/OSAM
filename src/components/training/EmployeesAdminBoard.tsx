@@ -13,6 +13,7 @@ export type Employee = {
   hired_at: string | null;
   is_active: boolean;
   created_at: string;
+  role: string;
 };
 
 type FormState = {
@@ -21,6 +22,7 @@ type FormState = {
   password: string;
   dept: string;
   hired_at: string;
+  role: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -29,6 +31,13 @@ const EMPTY_FORM: FormState = {
   password: "",
   dept: "",
   hired_at: "",
+  role: "employee",
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  employee: "종사자",
+  social_worker: "사회복지사",
+  admin: "관리자",
 };
 
 export default function EmployeesAdminBoard({
@@ -59,6 +68,7 @@ export default function EmployeesAdminBoard({
         password: form.password,
         dept: form.dept || null,
         hired_at: form.hired_at || null,
+        role: form.role,
       }),
     });
     const json = await res.json();
@@ -100,6 +110,7 @@ export default function EmployeesAdminBoard({
           <tr>
             <th>이름</th>
             <th>아이디</th>
+            <th>역할</th>
             <th>부서</th>
             <th>입사일</th>
             <th>상태</th>
@@ -109,7 +120,7 @@ export default function EmployeesAdminBoard({
         <tbody>
           {employees.length === 0 && (
             <tr>
-              <td colSpan={6} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
+              <td colSpan={7} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
                 등록된 종사자가 없습니다.
               </td>
             </tr>
@@ -118,6 +129,7 @@ export default function EmployeesAdminBoard({
             <tr key={emp.id}>
               <td>{emp.name}</td>
               <td>{emp.employee_no ?? "-"}</td>
+              <td>{ROLE_LABEL[emp.role] ?? emp.role}</td>
               <td>{emp.dept ?? "-"}</td>
               <td>{emp.hired_at ?? "-"}</td>
               <td>
@@ -165,6 +177,17 @@ export default function EmployeesAdminBoard({
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
+
+            <label>역할</label>
+            <select
+              className="select-course"
+              style={{ marginBottom: 0 }}
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+            >
+              <option value="employee">종사자</option>
+              <option value="social_worker">사회복지사</option>
+            </select>
 
             <label>부서 (선택)</label>
             <input

@@ -40,9 +40,11 @@ export default async function TrainingHome() {
     };
   }
 
+  const roleLabel = profile.role === "social_worker" ? "사회복지사" : "종사자";
+
   return (
     <>
-      <TopBar name={profile.name} roleLabel="종사자" />
+      <TopBar name={profile.name} roleLabel={roleLabel} />
       <CourseBoard
         employeeName={profile.name}
         courses={courses ?? []}

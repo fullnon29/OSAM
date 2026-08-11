@@ -38,7 +38,16 @@ export default async function CourseDetailPage({
 
   return (
     <>
-      <TopBar name={profile.name} roleLabel={profile.role === "admin" ? "관리자" : "종사자"} />
+      <TopBar
+        name={profile.name}
+        roleLabel={
+          profile.role === "admin"
+            ? "관리자"
+            : profile.role === "social_worker"
+              ? "사회복지사"
+              : "종사자"
+        }
+      />
       <CourseDetail
         course={course}
         employeeName={profile.name}

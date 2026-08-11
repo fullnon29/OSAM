@@ -22,9 +22,21 @@ export default function TopBar({
 
   return (
     <div className="app-topbar">
-      <Link className="app-back" href="/">
-        ← 홈페이지로 돌아가기
-      </Link>
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+        <Link className="app-back" href="/">
+          ← 홈페이지로 돌아가기
+        </Link>
+        {roleLabel === "사회복지사" && (
+          <Link className="app-back" href="/training">
+            종사자 교육
+          </Link>
+        )}
+        {roleLabel === "사회복지사" && (
+          <Link className="app-back" href="/assessment">
+            욕구사정
+          </Link>
+        )}
+      </div>
       <div className="who">
         <span className="tag">{roleLabel}</span>
         <span>{name}</span>
