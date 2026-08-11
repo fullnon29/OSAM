@@ -117,9 +117,14 @@ export default function AdminBoard({
           <h1>관리자 · 교육 이수 관리</h1>
           <p>교육을 선택하면 전 종사자의 이수 현황을 확인하고 완료 시각을 수정할 수 있습니다.</p>
         </div>
-        <Link className="btn small" href="/training/admin/posts">
-          소식·정보 글 관리
-        </Link>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Link className="btn outline small" href="/training/admin/employees">
+            종사자 계정 관리
+          </Link>
+          <Link className="btn small" href="/training/admin/posts">
+            소식·정보 글 관리
+          </Link>
+        </div>
       </div>
 
       <select

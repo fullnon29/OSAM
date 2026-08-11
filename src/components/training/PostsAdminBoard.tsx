@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { POST_CATEGORIES, type Post } from "@/lib/posts";
 import { formatKst } from "@/lib/format";
 
@@ -105,6 +106,9 @@ export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
     <div className="app-wrap">
       <div className="page-head">
         <div>
+          <Link className="btn-ghost" href="/training/admin" style={{ marginBottom: 12, display: "inline-flex" }}>
+            ← 교육 이수 관리로
+          </Link>
           <h1>소식·정보 게시글 관리</h1>
           <p>홈페이지 소식·정보 섹션에 노출되는 글을 작성/수정/삭제합니다.</p>
         </div>
