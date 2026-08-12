@@ -86,15 +86,24 @@ export default function RecipientDetailBoard({
               작성(방문사정)일 {a.assessed_at}
             </span>
           </Link>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {a.status === "completed" && (
-              <a
-                className="btn outline small"
-                style={{ width: "auto", padding: "6px 14px", fontSize: 12.5 }}
-                href={`/api/assessment/assessments/${a.id}/docx`}
-              >
-                다운로드 (.docx)
-              </a>
+              <>
+                <a
+                  className="btn outline small"
+                  style={{ width: "auto", padding: "6px 12px", fontSize: 12.5 }}
+                  href={`/api/assessment/assessments/${a.id}/docx`}
+                >
+                  워드 (.docx)
+                </a>
+                <a
+                  className="btn outline small"
+                  style={{ width: "auto", padding: "6px 12px", fontSize: 12.5 }}
+                  href={`/api/assessment/assessments/${a.id}/pdf`}
+                >
+                  PDF
+                </a>
+              </>
             )}
             <span className={`status ${a.status === "completed" ? "done" : "todo"}`}>
               {a.status === "completed" ? "완료" : "작성중"}
