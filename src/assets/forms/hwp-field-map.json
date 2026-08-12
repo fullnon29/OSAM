@@ -1,0 +1,1702 @@
+{
+  "s1_type": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 89,
+        "overwriteByteOffset": 18
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 89,
+        "overwriteByteOffset": 38
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 89,
+        "overwriteByteOffset": 58
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 89,
+        "overwriteByteOffset": 82
+      }
+    ]
+  },
+  "s1_interviewee": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 189,
+        "overwriteByteOffset": 2
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 194,
+        "overwriteByteOffset": 18
+      }
+    ]
+  },
+  "s1_primary_caregiver_present": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 210,
+        "overwriteByteOffset": 2
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 210,
+        "overwriteByteOffset": 20
+      }
+    ]
+  },
+  "s2a_diseases": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 267,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 278,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 284,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 290,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 296,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 307,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 313,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 319,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 325,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 331,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 342,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 348,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 371,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 377,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 383,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 394,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 400,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 406,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 412,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 429,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 435,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 441,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 447,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 453,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 464,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 470,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 476,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 487,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 492,
+        "overwriteByteOffset": 0
+      }
+    ]
+  },
+  "s2c_oral_health": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 559,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 564,
+        "overwriteByteOffset": 0
+      },
+      {
+        "kind": "box",
+        "headerIndex": 564,
+        "overwriteByteOffset": 26
+      },
+      {
+        "kind": "box",
+        "headerIndex": 564,
+        "overwriteByteOffset": 52
+      },
+      {
+        "kind": "box",
+        "headerIndex": 564,
+        "overwriteByteOffset": 72
+      }
+    ]
+  },
+  "s2c_meal_form": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 574,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 574,
+        "overwriteByteOffset": 32
+      },
+      {
+        "kind": "box",
+        "headerIndex": 574,
+        "overwriteByteOffset": 48
+      },
+      {
+        "kind": "box",
+        "headerIndex": 574,
+        "overwriteByteOffset": 60
+      },
+      {
+        "kind": "box",
+        "headerIndex": 574,
+        "overwriteByteOffset": 76
+      },
+      {
+        "kind": "box",
+        "headerIndex": 574,
+        "overwriteByteOffset": 94
+      }
+    ]
+  },
+  "s2c_therapeutic_diet": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 585,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 585,
+        "overwriteByteOffset": 38
+      },
+      {
+        "kind": "box",
+        "headerIndex": 585,
+        "overwriteByteOffset": 56
+      },
+      {
+        "kind": "box",
+        "headerIndex": 585,
+        "overwriteByteOffset": 74
+      }
+    ]
+  },
+  "s2c_nutrition": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 601,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 607,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s3_urination_function": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 863,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 869,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 875,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 881,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 887,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s3_urination_method": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 898,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 904,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 910,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 916,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 922,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s3_defecation_function": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 939,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 945,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 951,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 957,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 963,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 969,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s3_defecation_method": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 981,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 987,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 993,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 999,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1005,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s4_gait": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 1092,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1092,
+        "overwriteByteOffset": 70
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1097,
+        "overwriteByteOffset": 0
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1097,
+        "overwriteByteOffset": 48
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1101,
+        "overwriteByteOffset": 0
+      }
+    ]
+  },
+  "s4_gait_aid": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 1111,
+        "overwriteByteOffset": 18
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1111,
+        "overwriteByteOffset": 36
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1111,
+        "overwriteByteOffset": 62
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1111,
+        "overwriteByteOffset": 82
+      }
+    ]
+  },
+  "s5_respiratory": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 1262,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1268,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1274,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1280,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1286,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1292,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s5_digestive": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 1352,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1358,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1364,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1370,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s5_pain_frequency": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 1415,
+        "overwriteByteOffset": 18
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1421,
+        "overwriteByteOffset": 18
+      }
+    ]
+  },
+  "s5_pain_management": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 1436,
+        "overwriteByteOffset": 18
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1441,
+        "overwriteByteOffset": 2
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1446,
+        "overwriteByteOffset": 18
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1451,
+        "overwriteByteOffset": 2
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1456,
+        "overwriteByteOffset": 18
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1461,
+        "overwriteByteOffset": 2
+      }
+    ]
+  },
+  "s5_urinary": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 1471,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1477,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1483,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1489,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1495,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1501,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1507,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s5_defecation": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 1518,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1524,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1530,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1536,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s5_endocrine": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 1547,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1553,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1559,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s6_psychology": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 1726,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1732,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1738,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1744,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1750,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s7_cohabitant": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 2406,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2424,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2430,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2436,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2442,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2448,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2454,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2460,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2466,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s7_children": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 2502,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2508,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s7_primary_caregiver": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 2519,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2525,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s7_alone_all_day": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2585,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2585,
+        "overwriteByteOffset": 42
+      }
+    ]
+  },
+  "s7_family_contact": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2596,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2596,
+        "overwriteByteOffset": 40
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2596,
+        "overwriteByteOffset": 60
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2596,
+        "overwriteByteOffset": 82
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2596,
+        "overwriteByteOffset": 102
+      }
+    ]
+  },
+  "s7_friend_contact": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2607,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2607,
+        "overwriteByteOffset": 40
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2607,
+        "overwriteByteOffset": 60
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2607,
+        "overwriteByteOffset": 82
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2607,
+        "overwriteByteOffset": 102
+      }
+    ]
+  },
+  "s7_community_resources": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 2630,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2640,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2646,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2652,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2658,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2664,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2670,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2676,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2682,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2688,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2694,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s8_elevator": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2766,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2766,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_stairs": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2788,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2788,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_threshold": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2810,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2810,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_floor_wall": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2832,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2832,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_hvac": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2854,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2854,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_lighting": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2876,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2876,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_kitchen": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2777,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2777,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_toilet_location": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2799,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2799,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_western_toilet": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2821,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2821,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_hot_water": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2843,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2843,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_shower": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2865,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2865,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s8_sink": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "pua",
+        "headerIndex": 2887,
+        "overwriteByteOffset": 20
+      },
+      {
+        "kind": "pua",
+        "headerIndex": 2887,
+        "overwriteByteOffset": 38
+      }
+    ]
+  },
+  "s9_daily_support": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 2998,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3004,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3010,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3016,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3026,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3032,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3042,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s9_rehab": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 3058,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3064,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3074,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3080,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3090,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3096,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3106,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s9_cognitive_support": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 3128,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3134,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3144,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s9_health_care": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 3165,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3171,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s9_bath": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 3186,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3192,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 3222,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s2b_medication": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 510,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 515,
+        "overwriteByteOffset": 0
+      },
+      {
+        "kind": "box",
+        "headerIndex": 519,
+        "overwriteByteOffset": 0
+      },
+      {
+        "kind": "box",
+        "headerIndex": 523,
+        "overwriteByteOffset": 0
+      },
+      {
+        "kind": "box",
+        "headerIndex": 527,
+        "overwriteByteOffset": 0
+      }
+    ]
+  },
+  "s2c_nutrition_detail": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 613,
+        "overwriteByteOffset": 2
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 613,
+        "overwriteByteOffset": 26
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 613,
+        "overwriteByteOffset": 50
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 613,
+        "overwriteByteOffset": 74
+      }
+    ]
+  },
+  "s4_fall": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 1126,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1131,
+        "overwriteByteOffset": 0
+      }
+    ]
+  },
+  "s5_bedsore_stage": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 1309,
+        "overwriteByteOffset": 68
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1309,
+        "overwriteByteOffset": 86
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1309,
+        "overwriteByteOffset": 104
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1309,
+        "overwriteByteOffset": 122
+      }
+    ]
+  },
+  "s5_pain_type": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 1381,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1387,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 1403,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s5_dialysis_type": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 1501,
+        "overwriteByteOffset": 28
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 1501,
+        "overwriteByteOffset": 46
+      }
+    ]
+  },
+  "s7_housing_type": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 2371,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2377,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2383,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2389,
+        "overwriteByteOffset": 16
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2395,
+        "overwriteByteOffset": 16
+      }
+    ]
+  },
+  "s7_primary_caregiver_relation": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 2542,
+        "overwriteByteOffset": 18
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2542,
+        "overwriteByteOffset": 38
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2542,
+        "overwriteByteOffset": 56
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2542,
+        "overwriteByteOffset": 80
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2547,
+        "overwriteByteOffset": 2
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2547,
+        "overwriteByteOffset": 22
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2547,
+        "overwriteByteOffset": 40
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2547,
+        "overwriteByteOffset": 72
+      }
+    ]
+  },
+  "s7_primary_caregiver_burden": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 2561,
+        "overwriteByteOffset": 18
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2561,
+        "overwriteByteOffset": 54
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2566,
+        "overwriteByteOffset": 2
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2566,
+        "overwriteByteOffset": 30
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 2566,
+        "overwriteByteOffset": 58
+      }
+    ]
+  },
+  "s8_floor": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "box",
+        "headerIndex": 2726,
+        "overwriteByteOffset": 64
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2726,
+        "overwriteByteOffset": 82
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2726,
+        "overwriteByteOffset": 100
+      },
+      {
+        "kind": "box",
+        "headerIndex": 2726,
+        "overwriteByteOffset": 118
+      }
+    ]
+  },
+  "s9_outing_detail": {
+    "kind": "options",
+    "options": [
+      {
+        "kind": "bracket",
+        "headerIndex": 3032,
+        "overwriteByteOffset": 34
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 3032,
+        "overwriteByteOffset": 48
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 3032,
+        "overwriteByteOffset": 64
+      },
+      {
+        "kind": "bracket",
+        "headerIndex": 3032,
+        "overwriteByteOffset": 78
+      }
+    ]
+  },
+  "s3_wash_face": {
+    "kind": "scale4",
+    "headerIndex": 701,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_brush_teeth": {
+    "kind": "scale4",
+    "headerIndex": 723,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_toilet_use": {
+    "kind": "scale4",
+    "headerIndex": 712,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_body_wash": {
+    "kind": "scale4",
+    "headerIndex": 734,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_dressing": {
+    "kind": "scale4",
+    "headerIndex": 750,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_eating": {
+    "kind": "scale4",
+    "headerIndex": 772,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_swallowing": {
+    "kind": "scale4",
+    "headerIndex": 761,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_cleaning": {
+    "kind": "scale4",
+    "headerIndex": 792,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_meal_prep": {
+    "kind": "scale4",
+    "headerIndex": 814,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_laundry": {
+    "kind": "scale4",
+    "headerIndex": 836,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_transport": {
+    "kind": "scale4",
+    "headerIndex": 803,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_medication": {
+    "kind": "scale4",
+    "headerIndex": 825,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s3_shopping": {
+    "kind": "scale4",
+    "headerIndex": 847,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s4_roll_over": {
+    "kind": "scale4",
+    "headerIndex": 1175,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s4_sit_up": {
+    "kind": "scale4",
+    "headerIndex": 1197,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s4_stand_up": {
+    "kind": "scale4",
+    "headerIndex": 1186,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  },
+  "s4_indoor_walk": {
+    "kind": "scale4",
+    "headerIndex": 1208,
+    "puaByteOffsets": [
+      16,
+      22,
+      28,
+      34
+    ]
+  }
+}

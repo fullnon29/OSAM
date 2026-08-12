@@ -103,6 +103,14 @@ export default function RecipientDetailBoard({
                 >
                   PDF
                 </a>
+                <a
+                  className="btn outline small"
+                  style={{ width: "auto", padding: "6px 12px", fontSize: 12.5 }}
+                  href={`/api/assessment/assessments/${a.id}/hwp`}
+                  title="일부 체크박스 항목만 자동으로 표시됩니다. 의견·총평 등 서술형 내용은 포함되지 않아, 전체 내용이 필요하면 워드나 PDF를 이용해 주세요."
+                >
+                  한글 (베타)
+                </a>
               </>
             )}
             <span className={`status ${a.status === "completed" ? "done" : "todo"}`}>
