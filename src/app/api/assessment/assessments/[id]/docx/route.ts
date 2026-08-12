@@ -51,6 +51,7 @@ export async function GET(
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "Content-Disposition": `attachment; filename="assessment.docx"; filename*=UTF-8''${filename}`,
+      "Cache-Control": "no-store",
     },
   });
 }

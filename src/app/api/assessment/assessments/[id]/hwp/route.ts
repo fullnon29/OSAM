@@ -43,6 +43,7 @@ export async function GET(
     headers: {
       "Content-Type": "application/x-hwp",
       "Content-Disposition": `attachment; filename="assessment.hwp"; filename*=UTF-8''${filename}`,
+      "Cache-Control": "no-store",
     },
   });
 }

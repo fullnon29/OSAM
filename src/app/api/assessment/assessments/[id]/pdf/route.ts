@@ -51,6 +51,7 @@ export async function GET(
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="assessment.pdf"; filename*=UTF-8''${filename}`,
+      "Cache-Control": "no-store",
     },
   });
 }
