@@ -31,7 +31,7 @@ export default function TopBar({
             종사자 교육
           </Link>
         )}
-        {roleLabel === "사회복지사" && (
+        {(roleLabel === "사회복지사" || roleLabel === "관리자") && (
           <Link className="app-back" href="/assessment">
             욕구사정
           </Link>

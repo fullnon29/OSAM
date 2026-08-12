@@ -21,7 +21,7 @@ export default async function NewAssessmentPage({
     .eq("id", user.id)
     .single();
   if (!profile) redirect("/training/login");
-  if (profile.role !== "social_worker") redirect("/training");
+  if (profile.role !== "social_worker" && profile.role !== "admin") redirect("/training");
 
   const { data: recipient } = await supabase
     .from("care_recipients")
@@ -32,7 +32,10 @@ export default async function NewAssessmentPage({
 
   return (
     <>
-      <TopBar name={profile.name} roleLabel="사회복지사" />
+      <TopBar
+        name={profile.name}
+        roleLabel={profile.role === "admin" ? "관리자" : "사회복지사"}
+      />
       <AssessmentEditor recipientId={recipient.id} recipientName={recipient.name} />
     </>
   );

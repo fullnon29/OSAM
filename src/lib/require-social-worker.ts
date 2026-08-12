@@ -18,8 +18,8 @@ export async function requireSocialWorker() {
     .eq("id", user.id)
     .single();
 
-  if (!profile || profile.role !== "social_worker") {
-    return { error: "사회복지사만 접근할 수 있습니다." as const, status: 403 as const };
+  if (!profile || (profile.role !== "social_worker" && profile.role !== "admin")) {
+    return { error: "사회복지사 또는 관리자만 접근할 수 있습니다." as const, status: 403 as const };
   }
 
   return { admin, profile };

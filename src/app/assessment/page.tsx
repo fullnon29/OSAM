@@ -16,7 +16,7 @@ export default async function AssessmentHome() {
     .eq("id", user.id)
     .single();
   if (!profile) redirect("/training/login");
-  if (profile.role !== "social_worker") redirect("/training");
+  if (profile.role !== "social_worker" && profile.role !== "admin") redirect("/training");
 
   const { data: recipients } = await supabase
     .from("care_recipients")
@@ -25,7 +25,10 @@ export default async function AssessmentHome() {
 
   return (
     <>
-      <TopBar name={profile.name} roleLabel="사회복지사" />
+      <TopBar
+        name={profile.name}
+        roleLabel={profile.role === "admin" ? "관리자" : "사회복지사"}
+      />
       <RecipientsBoard recipients={(recipients ?? []) as Recipient[]} />
     </>
   );
