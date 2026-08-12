@@ -7,7 +7,7 @@ import { parseRecords, type HwpRecord } from "./hwp/record-stream";
 import { ASSESSMENT_SECTIONS } from "./assessment-form";
 import fieldMap from "@/assets/forms/hwp-field-map.json";
 
-type Responses = Record<string, string | string[] | undefined>;
+type Responses = Record<string, string | string[] | number | undefined>;
 
 type MarkerRef = { kind: "box" | "bracket" | "pua"; headerIndex: number; overwriteByteOffset: number };
 type FieldMapEntry =
@@ -65,7 +65,9 @@ export async function generateAssessmentHwp(responses: Responses): Promise<Buffe
     }
 
     // kind === "options"
-    const selected = Array.isArray(value) ? value : [value];
+    const selected = (Array.isArray(value) ? value : [value]).filter(
+      (v): v is string => typeof v === "string"
+    );
     const options = field.options ?? [];
     for (const sel of selected) {
       const idx = options.indexOf(sel);

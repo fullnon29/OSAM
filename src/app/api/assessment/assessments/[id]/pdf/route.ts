@@ -39,7 +39,7 @@ export async function GET(
     roundNo: assessment.round_no,
     assessedAt: assessment.assessed_at,
     authorName: author?.name ?? "미상",
-    responses: (assessment.responses ?? {}) as Record<string, string | string[] | undefined>,
+    responses: (assessment.responses ?? {}) as Record<string, string | string[] | number | undefined>,
     finalSummary: assessment.final_summary ?? "",
   });
 

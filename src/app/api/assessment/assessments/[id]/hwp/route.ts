@@ -32,7 +32,7 @@ export async function GET(
   const recipient = assessment.care_recipients as unknown as { name: string } | null;
 
   const buffer = await generateAssessmentHwp(
-    (assessment.responses ?? {}) as Record<string, string | string[] | undefined>
+    (assessment.responses ?? {}) as Record<string, string | string[] | number | undefined>
   );
 
   const filename = encodeURIComponent(

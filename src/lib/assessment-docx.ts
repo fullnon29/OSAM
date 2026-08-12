@@ -9,10 +9,10 @@ import {
 } from "docx";
 import { ASSESSMENT_SECTIONS, type Field } from "./assessment-form";
 
-type Responses = Record<string, string | string[] | undefined>;
+type Responses = Record<string, string | string[] | number | undefined>;
 
-function renderChoiceLine(field: Field, value: string | string[] | undefined): string {
-  const selected = Array.isArray(value) ? value : value ? [value] : [];
+function renderChoiceLine(field: Field, value: string | string[] | number | undefined): string {
+  const selected = Array.isArray(value) ? value : value !== undefined ? [String(value)] : [];
   return (field.options ?? [])
     .map((opt) => `${selected.includes(opt) ? "☑" : "☐"} ${opt}`)
     .join("   ");
@@ -23,8 +23,8 @@ function fieldValueText(field: Field, responses: Responses): string {
   if (field.type === "select" || field.type === "scale4" || field.type === "multiselect") {
     return renderChoiceLine(field, value);
   }
-  if (typeof value === "string" && value.trim()) {
-    return field.suffix ? `${value} ${field.suffix}` : value;
+  if ((typeof value === "string" && value.trim()) || typeof value === "number") {
+    return field.suffix ? `${value} ${field.suffix}` : String(value);
   }
   return "-";
 }
