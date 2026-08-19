@@ -20,13 +20,20 @@ export default function AssessmentEditor({
   recipientId,
   recipientName,
   existing,
+  initialResponses,
+  previousRoundNo,
 }: {
   recipientId: string;
   recipientName: string;
   existing?: ExistingAssessment;
+  /** when starting a new round, pre-fill from the previous round's answers */
+  initialResponses?: Responses;
+  previousRoundNo?: number;
 }) {
   const router = useRouter();
-  const [responses, setResponses] = useState<Responses>(existing?.responses ?? {});
+  const [responses, setResponses] = useState<Responses>(
+    existing?.responses ?? initialResponses ?? {}
+  );
   const [assessedAt, setAssessedAt] = useState(
     existing?.assessed_at ?? new Date().toISOString().slice(0, 10)
   );
@@ -117,6 +124,13 @@ export default function AssessmentEditor({
           <p>영역별 문항에 응답한 뒤 &quot;총평 생성&quot;을 눌러 초안을 만들고, 검토·수정 후 저장하세요.</p>
         </div>
       </div>
+
+      {!existing && initialResponses && (
+        <div className="detail-card assess-section" style={{ background: "var(--paper-deep)" }}>
+          <strong>{previousRoundNo}회차 응답을 불러왔습니다.</strong> 변경된 부분만 수정한 뒤,
+          &quot;총평 생성&quot;을 눌러 이번 회차 상태에 맞는 총평을 새로 만드세요.
+        </div>
+      )}
 
       <div className="detail-card assess-section">
         <div className="assess-field">

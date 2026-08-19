@@ -30,13 +30,26 @@ export default async function NewAssessmentPage({
     .maybeSingle();
   if (!recipient) notFound();
 
+  const { data: previous } = await supabase
+    .from("needs_assessments")
+    .select("round_no, responses")
+    .eq("care_recipient_id", id)
+    .order("round_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <>
       <TopBar
         name={profile.name}
         roleLabel={profile.role === "admin" ? "관리자" : "사회복지사"}
       />
-      <AssessmentEditor recipientId={recipient.id} recipientName={recipient.name} />
+      <AssessmentEditor
+        recipientId={recipient.id}
+        recipientName={recipient.name}
+        initialResponses={previous?.responses ?? undefined}
+        previousRoundNo={previous?.round_no}
+      />
     </>
   );
 }
