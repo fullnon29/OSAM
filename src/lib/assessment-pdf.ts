@@ -11,22 +11,34 @@ function loadFontBytes(file: string) {
   return readFileSync(path.join(process.cwd(), "src/assets/fonts", file));
 }
 
-function renderChoiceLine(field: Field, value: string | string[] | number | undefined): string {
-  const selected = Array.isArray(value) ? value : value !== undefined ? [String(value)] : [];
-  return (field.options ?? [])
-    .map((opt) => `${selected.includes(opt) ? "■" : "□"} ${opt}`)
-    .join("   ");
+// The embedded Korean font subset only covers Hangul + basic ASCII, so any
+// other character (e.g. the middle dot used in a few labels) must be swapped
+// for a safe ASCII fallback before drawing, or it silently renders as a
+// different, wrong glyph.
+function sanitizeForPdfFont(text: string): string {
+  return text.replace(/·/g, "-");
 }
 
-function fieldValueText(field: Field, responses: Responses): string {
+type ChoiceItem = { label: string; checked: boolean };
+type ValueContent = { kind: "text"; text: string } | { kind: "choices"; items: ChoiceItem[] };
+
+function fieldValueContent(field: Field, responses: Responses): ValueContent {
   const value = responses[field.code];
   if (field.type === "select" || field.type === "scale4" || field.type === "multiselect") {
-    return renderChoiceLine(field, value);
+    const selected = Array.isArray(value) ? value : value !== undefined ? [String(value)] : [];
+    return {
+      kind: "choices",
+      items: (field.options ?? []).map((opt) => ({
+        label: sanitizeForPdfFont(opt),
+        checked: selected.includes(opt),
+      })),
+    };
   }
   if ((typeof value === "string" && value.trim()) || typeof value === "number") {
-    return field.suffix ? `${value} ${field.suffix}` : String(value);
+    const text = field.suffix ? `${value} ${field.suffix}` : String(value);
+    return { kind: "text", text: sanitizeForPdfFont(text) };
   }
-  return "-";
+  return { kind: "text", text: "-" };
 }
 
 const PAGE_WIDTH = 595;
@@ -41,6 +53,9 @@ const CELL_PAD_X = 6;
 const ROW_PAD_Y = 4;
 const FONT_SIZE = 8.5;
 const LINE_HEIGHT = FONT_SIZE * 1.35;
+const BOX_SIZE = FONT_SIZE * 0.85;
+const BOX_GAP = 3;
+const ITEM_GAP = 9;
 
 function wrapLine(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   if (!text) return [""];
@@ -56,6 +71,27 @@ function wrapLine(text: string, font: PDFFont, size: number, maxWidth: number): 
     }
   }
   if (current) lines.push(current);
+  return lines;
+}
+
+// Greedily wraps checkbox items into lines, keeping each box+label pair
+// intact (never split across lines).
+function wrapChoices(items: ChoiceItem[], font: PDFFont, size: number, maxWidth: number): ChoiceItem[][] {
+  const lines: ChoiceItem[][] = [];
+  let current: ChoiceItem[] = [];
+  let currentWidth = 0;
+  for (const item of items) {
+    const itemWidth = BOX_SIZE + BOX_GAP + font.widthOfTextAtSize(item.label, size) + ITEM_GAP;
+    if (current.length > 0 && currentWidth + itemWidth > maxWidth) {
+      lines.push(current);
+      current = [];
+      currentWidth = 0;
+    }
+    current.push(item);
+    currentWidth += itemWidth;
+  }
+  if (current.length > 0) lines.push(current);
+  if (lines.length === 0) lines.push([]);
   return lines;
 }
 
@@ -100,7 +136,7 @@ export async function generateAssessmentPdf(params: {
   ) {
     const maxWidth = opts.maxWidth ?? TABLE_WIDTH;
     const lineHeight = opts.size * 1.5;
-    const lines = wrapLine(text, opts.font, opts.size, maxWidth);
+    const lines = wrapLine(sanitizeForPdfFont(text), opts.font, opts.size, maxWidth);
     for (const l of lines) {
       ensureSpace(lineHeight);
       page.drawText(l, { x: MARGIN_X, y, size: opts.size, font: opts.font, color: opts.color });
@@ -109,10 +145,34 @@ export async function generateAssessmentPdf(params: {
     if (opts.gapAfter) y -= opts.gapAfter;
   }
 
-  function drawTableRow(labelText: string, valueText: string) {
-    const labelLines = wrapLine(labelText, bold, FONT_SIZE, LABEL_COL_WIDTH - CELL_PAD_X * 2);
-    const valueLines = wrapLine(valueText, regular, FONT_SIZE, VALUE_COL_WIDTH - CELL_PAD_X * 2);
-    const rowLines = Math.max(labelLines.length, valueLines.length, 1);
+  function drawChoiceLine(items: ChoiceItem[], x: number, textY: number) {
+    let cx = x;
+    const boxY = textY - BOX_SIZE * 0.12;
+    for (const item of items) {
+      page.drawRectangle({
+        x: cx,
+        y: boxY,
+        width: BOX_SIZE,
+        height: BOX_SIZE,
+        borderColor: ink,
+        borderWidth: 0.7,
+        color: item.checked ? ink : undefined,
+      });
+      cx += BOX_SIZE + BOX_GAP;
+      page.drawText(item.label, { x: cx, y: textY, size: FONT_SIZE, font: regular, color: ink });
+      cx += regular.widthOfTextAtSize(item.label, FONT_SIZE) + ITEM_GAP;
+    }
+  }
+
+  function drawTableRow(labelText: string, value: ValueContent) {
+    const labelLines = wrapLine(sanitizeForPdfFont(labelText), bold, FONT_SIZE, LABEL_COL_WIDTH - CELL_PAD_X * 2);
+    const valueWidth = VALUE_COL_WIDTH - CELL_PAD_X * 2;
+    const valueLineCount =
+      value.kind === "text"
+        ? wrapLine(value.text, regular, FONT_SIZE, valueWidth).length
+        : wrapChoices(value.items, regular, FONT_SIZE, valueWidth).length;
+
+    const rowLines = Math.max(labelLines.length, valueLineCount, 1);
     const rowHeight = rowLines * LINE_HEIGHT + ROW_PAD_Y * 2;
 
     ensureSpace(rowHeight);
@@ -146,16 +206,24 @@ export async function generateAssessmentPdf(params: {
       });
       ly -= LINE_HEIGHT;
     }
+
     let vy = rowTop - ROW_PAD_Y - FONT_SIZE;
-    for (const l of valueLines) {
-      page.drawText(l, {
-        x: MARGIN_X + LABEL_COL_WIDTH + CELL_PAD_X,
-        y: vy,
-        size: FONT_SIZE,
-        font: regular,
-        color: ink,
-      });
-      vy -= LINE_HEIGHT;
+    if (value.kind === "text") {
+      for (const l of wrapLine(value.text, regular, FONT_SIZE, valueWidth)) {
+        page.drawText(l, {
+          x: MARGIN_X + LABEL_COL_WIDTH + CELL_PAD_X,
+          y: vy,
+          size: FONT_SIZE,
+          font: regular,
+          color: ink,
+        });
+        vy -= LINE_HEIGHT;
+      }
+    } else {
+      for (const choiceLine of wrapChoices(value.items, regular, FONT_SIZE, valueWidth)) {
+        drawChoiceLine(choiceLine, MARGIN_X + LABEL_COL_WIDTH + CELL_PAD_X, vy);
+        vy -= LINE_HEIGHT;
+      }
     }
 
     y = rowBottom;
@@ -175,7 +243,7 @@ export async function generateAssessmentPdf(params: {
       borderColor: line,
       borderWidth: 0.6,
     });
-    page.drawText(text, {
+    page.drawText(sanitizeForPdfFont(text), {
       x: MARGIN_X + CELL_PAD_X,
       y: rowTop - ROW_PAD_Y - FONT_SIZE,
       size: FONT_SIZE,
@@ -206,7 +274,7 @@ export async function generateAssessmentPdf(params: {
         drawGroupRow(field.group);
       }
       const suffixLabel = field.suffix ? `${field.label} (${field.suffix})` : field.label;
-      drawTableRow(suffixLabel, fieldValueText(field, responses));
+      drawTableRow(suffixLabel, fieldValueContent(field, responses));
     }
     y -= 10;
   }
@@ -214,7 +282,7 @@ export async function generateAssessmentPdf(params: {
   ensureSpace(LINE_HEIGHT * 1.6 + 6);
   drawFreeText("10. 종합의견 (총평)", { font: bold, size: 12.5, color: pine, gapAfter: 6 });
   {
-    const text = finalSummary || "-";
+    const text = sanitizeForPdfFont(finalSummary || "-");
     const lines = wrapLine(text, regular, FONT_SIZE + 0.5, TABLE_WIDTH - CELL_PAD_X * 2);
     const boxHeight = lines.length * LINE_HEIGHT + ROW_PAD_Y * 2;
     ensureSpace(boxHeight);

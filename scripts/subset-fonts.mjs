@@ -5,10 +5,17 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import subsetFont from "subset-font";
 
-// 완성형 한글 전체(U+AC00~D7A3) + ASCII(공백~물결) + 자주 쓰는 문장부호
+// 완성형 한글 전체(U+AC00~D7A3) + 한글 자모(U+3131~318E) + ASCII(공백~물결)
+// + Latin-1 Supplement(가운뎃점 · 등) + 일반 문장부호 + 도형 기호(□■○● 등, 체크박스 표시용)
 let chars = "";
 for (let cp = 0xac00; cp <= 0xd7a3; cp++) chars += String.fromCodePoint(cp);
+for (let cp = 0x3131; cp <= 0x318e; cp++) chars += String.fromCodePoint(cp);
 for (let cp = 0x20; cp <= 0x7e; cp++) chars += String.fromCodePoint(cp);
+for (let cp = 0x80; cp <= 0xff; cp++) chars += String.fromCodePoint(cp);
+for (let cp = 0x2000; cp <= 0x206f; cp++) chars += String.fromCodePoint(cp);
+for (let cp = 0x2190; cp <= 0x21ff; cp++) chars += String.fromCodePoint(cp);
+for (let cp = 0x2200; cp <= 0x22ff; cp++) chars += String.fromCodePoint(cp);
+for (let cp = 0x25a0; cp <= 0x25ff; cp++) chars += String.fromCodePoint(cp);
 
 async function run(name) {
   const input = readFileSync(
