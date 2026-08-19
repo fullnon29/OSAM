@@ -54,23 +54,30 @@ const ROW_PAD_Y = 4;
 const FONT_SIZE = 8.5;
 const LINE_HEIGHT = FONT_SIZE * 1.35;
 const BOX_SIZE = FONT_SIZE * 0.85;
-const BOX_GAP = 3;
-const ITEM_GAP = 9;
+const BOX_GAP = 4;
+const ITEM_GAP = 12;
 
+// pdf-lib's drawText auto-advances to a new line internally when the string
+// contains a literal "\n", which our own y-cursor bookkeeping knows nothing
+// about - so any embedded newline (e.g. paragraph breaks in AI-generated
+// text) must be split into separate hard lines here, never left inside a
+// single string handed to drawText, or the next line we draw overlaps it.
 function wrapLine(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   if (!text) return [""];
   const lines: string[] = [];
-  let current = "";
-  for (const ch of text) {
-    const trial = current + ch;
-    if (font.widthOfTextAtSize(trial, size) > maxWidth && current) {
-      lines.push(current);
-      current = ch;
-    } else {
-      current = trial;
+  for (const paragraph of text.split("\n")) {
+    let current = "";
+    for (const ch of paragraph) {
+      const trial = current + ch;
+      if (font.widthOfTextAtSize(trial, size) > maxWidth && current) {
+        lines.push(current);
+        current = ch;
+      } else {
+        current = trial;
+      }
     }
+    lines.push(current);
   }
-  if (current) lines.push(current);
   return lines;
 }
 
