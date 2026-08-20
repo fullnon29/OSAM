@@ -62,6 +62,10 @@ const LINE_HEIGHT = FONT_SIZE * 1.35;
 const BOX_SIZE = FONT_SIZE * 0.85;
 const BOX_GAP = 4;
 const ITEM_GAP = 12;
+// 절 제목 주변 여백: 제목이 아래 표에 붙어 보이도록 위쪽을 아래쪽보다 넓게 둡니다.
+const SECTION_TITLE_SIZE = 12.5;
+const SECTION_GAP_BEFORE = 18;
+const SECTION_GAP_AFTER = 7;
 
 // pdf-lib's drawText auto-advances to a new line internally when the string
 // contains a literal "\n", which our own y-cursor bookkeeping knows nothing
@@ -280,13 +284,17 @@ export async function generateAssessmentPdf(params: {
   for (const [label, value] of recipientInfoPairs(recipient)) {
     drawTableRow(label, { kind: "text", text: sanitizeForPdfFont(value) });
   }
-  y -= 10;
 
   for (const section of ASSESSMENT_SECTIONS) {
-    ensureSpace(LINE_HEIGHT * 1.6 + 6);
-    drawFreeText(section.title, { font: bold, size: 12.5, color: pine, gapAfter: section.note ? 2 : 4 });
+    // 제목은 아래 표와 한 덩어리로 읽혀야 하므로 위쪽 여백을 아래쪽보다 넓게 두고,
+    // 제목만 페이지 끝에 홀로 남지 않도록 첫 줄까지 들어갈 자리를 함께 확보합니다.
+    ensureSpace(SECTION_GAP_BEFORE + SECTION_TITLE_SIZE + SECTION_GAP_AFTER + LINE_HEIGHT * 3);
+    y -= SECTION_GAP_BEFORE;
+    drawTextRun(section.title, MARGIN_X, y - SECTION_TITLE_SIZE, bold, SECTION_TITLE_SIZE, pine);
+    y -= SECTION_TITLE_SIZE + (section.note ? 3 : SECTION_GAP_AFTER);
     if (section.note) {
-      drawFreeText(section.note, { font: regular, size: 8, color: gray, gapAfter: 5 });
+      drawTextRun(section.note, MARGIN_X, y - 8, regular, 8, gray);
+      y -= 8 + SECTION_GAP_AFTER;
     }
 
     let lastGroup: string | undefined;
@@ -309,11 +317,13 @@ export async function generateAssessmentPdf(params: {
       const suffixLabel = field.suffix ? `${field.label} (${field.suffix})` : field.label;
       drawTableRow(suffixLabel, fieldValueContent(field, responses));
     }
-    y -= 10;
+    // 다음 절 제목의 SECTION_GAP_BEFORE가 표 사이 여백 역할을 하므로 여기서는 더하지 않습니다.
   }
 
-  ensureSpace(LINE_HEIGHT * 1.6 + 6);
-  drawFreeText("10. 종합의견 (총평)", { font: bold, size: 12.5, color: pine, gapAfter: 6 });
+  ensureSpace(SECTION_GAP_BEFORE + SECTION_TITLE_SIZE + SECTION_GAP_AFTER + LINE_HEIGHT * 3);
+  y -= SECTION_GAP_BEFORE;
+  drawTextRun("10. 종합의견 (총평)", MARGIN_X, y - SECTION_TITLE_SIZE, bold, SECTION_TITLE_SIZE, pine);
+  y -= SECTION_TITLE_SIZE + SECTION_GAP_AFTER;
   {
     const text = sanitizeForPdfFont(finalSummary || "-");
     const lines = wrapLine(text, regular, FONT_SIZE + 0.5, TABLE_WIDTH - CELL_PAD_X * 2);

@@ -97,6 +97,22 @@ function groupedFieldRows(field: Field, value: string | string[] | number | unde
   );
 }
 
+// 절 제목 여백(twip). Word 기본 제목 스타일은 자체 여백을 갖고 있어 제목이 위 표에
+// 달라붙고 아래로만 벌어지므로, 스타일 대신 직접 서식을 지정해 위쪽을 넓게 둡니다.
+const SECTION_SPACE_BEFORE = 360;
+const SECTION_SPACE_AFTER = 140;
+
+function sectionHeading(title: string, opts?: { tightBelow?: boolean }) {
+  return new Paragraph({
+    spacing: {
+      before: SECTION_SPACE_BEFORE,
+      after: opts?.tightBelow ? 60 : SECTION_SPACE_AFTER,
+    },
+    keepNext: true, // 제목만 페이지 끝에 홀로 남지 않도록 다음 표와 붙여 둡니다.
+    children: [new TextRun({ text: title, bold: true, size: 24, color: "1E3327" })],
+  });
+}
+
 function groupRow(title: string) {
   return new TableRow({
     children: [
@@ -155,20 +171,14 @@ export async function generateAssessmentDocx(params: {
   ];
 
   for (const section of ASSESSMENT_SECTIONS) {
-    children.push(
-      new Paragraph({
-        text: section.title,
-        heading: HeadingLevel.HEADING_2,
-        spacing: { before: 260, after: 80 },
-      })
-    );
+    children.push(sectionHeading(section.title, { tightBelow: Boolean(section.note) }));
     if (section.note) {
       children.push(
         new Paragraph({
           children: [
             new TextRun({ text: section.note, italics: true, size: 16, color: "666666" }),
           ],
-          spacing: { after: 100 },
+          spacing: { after: SECTION_SPACE_AFTER },
         })
       );
     }
@@ -205,11 +215,7 @@ export async function generateAssessmentDocx(params: {
   }
 
   children.push(
-    new Paragraph({
-      text: "10. 종합의견 (총평)",
-      heading: HeadingLevel.HEADING_2,
-      spacing: { before: 260, after: 80 },
-    }),
+    sectionHeading("10. 종합의견 (총평)"),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       borders: {
