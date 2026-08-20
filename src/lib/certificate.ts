@@ -5,6 +5,7 @@ import { PDFDocument, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatKst } from "./format";
+import { drawTextRun, measureText } from "./pdf-text";
 
 export function generateCertNo(at: Date) {
   const year = at.getFullYear();
@@ -44,7 +45,7 @@ async function buildCertificatePdf(params: {
   const pageWidth = 595;
 
   function centerX(text: string, size: number, font: typeof bold) {
-    return (pageWidth - font.widthOfTextAtSize(text, size)) / 2;
+    return (pageWidth - measureText(text, font, size)) / 2;
   }
 
   page.drawRectangle({
@@ -57,58 +58,17 @@ async function buildCertificatePdf(params: {
   });
 
   const eyebrow = "CERTIFICATE OF COMPLETION";
-  page.drawText(eyebrow, {
-    x: centerX(eyebrow, 12, regular),
-    y: 350,
-    size: 12,
-    font: regular,
-    color: ochre,
-  });
-  page.drawText("수료증", {
-    x: centerX("수료증", 30, bold),
-    y: 300,
-    size: 30,
-    font: bold,
-    color: pine,
-  });
-  page.drawText(employeeName, {
-    x: centerX(employeeName, 22, bold),
-    y: 240,
-    size: 22,
-    font: bold,
-    color: ink,
-  });
+  drawTextRun(page, eyebrow, centerX(eyebrow, 12, regular), 350, regular, 12, ochre);
+  drawTextRun(page, "수료증", centerX("수료증", 30, bold), 300, bold, 30, pine);
+  drawTextRun(page, employeeName, centerX(employeeName, 22, bold), 240, bold, 22, ink);
+
   const courseLine = `"${courseName}" 교육 과정을 이수하였음을 증명합니다.`;
-  page.drawText(courseLine, {
-    x: centerX(courseLine, 13, regular),
-    y: 200,
-    size: 13,
-    font: regular,
-    color: ink,
-  });
+  drawTextRun(page, courseLine, centerX(courseLine, 13, regular), 200, regular, 13, ink);
 
   const dateStr = formatKst(completedAt.toISOString());
-  page.drawText(`이수일시: ${dateStr}`, {
-    x: 60,
-    y: 60,
-    size: 10,
-    font: regular,
-    color: ink,
-  });
-  page.drawText(`번호 ${certNo}`, {
-    x: 420,
-    y: 60,
-    size: 10,
-    font: regular,
-    color: ink,
-  });
-  page.drawText("오샘재가복지센터", {
-    x: 60,
-    y: 40,
-    size: 10,
-    font: regular,
-    color: ink,
-  });
+  drawTextRun(page, `이수일시: ${dateStr}`, 60, 60, regular, 10, ink);
+  drawTextRun(page, `번호 ${certNo}`, 420, 60, regular, 10, ink);
+  drawTextRun(page, "오샘재가복지센터", 60, 40, regular, 10, ink);
 
   return doc.save();
 }

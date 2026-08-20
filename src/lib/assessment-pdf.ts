@@ -4,6 +4,7 @@ import path from "node:path";
 import { PDFDocument, rgb, type PDFFont, type PDFPage, type Color } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { ASSESSMENT_SECTIONS, type Field } from "./assessment-form";
+import { measureText, drawTextRun as drawTextRunOnPage } from "./pdf-text";
 
 type Responses = Record<string, string | string[] | number | undefined>;
 
@@ -56,28 +57,6 @@ const LINE_HEIGHT = FONT_SIZE * 1.35;
 const BOX_SIZE = FONT_SIZE * 0.85;
 const BOX_GAP = 4;
 const ITEM_GAP = 12;
-
-// The embedded Korean subset font reports a space advance of ~0.22em, but
-// viewers render it far wider (close to a full em), so any text measured with
-// the font's own space width lands well past where we calculated - showing up
-// as text spilling outside table cells and oddly wide word gaps.
-//
-// To stay independent of how a viewer treats that glyph, spaces are never
-// handed to drawText at all: text is split on spaces, each word is drawn at an
-// x we compute, and the gap between words is a fixed fraction of the font size.
-// measureText mirrors that math exactly, so measured width always equals drawn
-// width.
-const SPACE_RATIO = 0.28;
-
-function measureText(text: string, font: PDFFont, size: number): number {
-  const words = text.split(" ");
-  let width = 0;
-  for (let i = 0; i < words.length; i++) {
-    if (words[i]) width += font.widthOfTextAtSize(words[i], size);
-    if (i < words.length - 1) width += size * SPACE_RATIO;
-  }
-  return width;
-}
 
 // pdf-lib's drawText auto-advances to a new line internally when the string
 // contains a literal "\n", which our own y-cursor bookkeeping knows nothing
@@ -159,8 +138,8 @@ export async function generateAssessmentPdf(params: {
     if (y - needed < MARGIN_BOTTOM) newPage();
   }
 
-  // Draws one line of text word by word, advancing x ourselves so the rendered
-  // width always matches measureText (see SPACE_RATIO above).
+  // Draws one line of text word by word (see pdf-text.ts) against whichever
+  // page is current, so the rendered width always matches measureText.
   function drawTextRun(
     text: string,
     x: number,
@@ -169,16 +148,7 @@ export async function generateAssessmentPdf(params: {
     size: number,
     color: Color
   ) {
-    const words = text.split(" ");
-    let cx = x;
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
-      if (word) {
-        page.drawText(word, { x: cx, y: textY, size, font, color });
-        cx += font.widthOfTextAtSize(word, size);
-      }
-      if (i < words.length - 1) cx += size * SPACE_RATIO;
-    }
+    drawTextRunOnPage(page, text, x, textY, font, size, color);
   }
 
   function drawFreeText(
