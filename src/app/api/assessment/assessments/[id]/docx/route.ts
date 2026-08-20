@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSocialWorker } from "@/lib/require-social-worker";
 import { generateAssessmentDocx } from "@/lib/assessment-docx";
+import type { RecipientInfo } from "@/lib/assessment-recipient";
 
 export async function GET(
   request: Request,
@@ -16,7 +17,7 @@ export async function GET(
   const { data: assessment, error } = await admin
     .from("needs_assessments")
     .select(
-      "round_no, assessed_at, responses, final_summary, status, care_recipients(name), profiles(name)"
+      "round_no, assessed_at, responses, final_summary, status, care_recipients(name, birth_date, gender, ltc_grade, ltc_number), profiles(name)"
     )
     .eq("id", id)
     .single();
@@ -31,11 +32,11 @@ export async function GET(
     );
   }
 
-  const recipient = assessment.care_recipients as unknown as { name: string } | null;
+  const recipient = assessment.care_recipients as unknown as RecipientInfo | null;
   const author = assessment.profiles as unknown as { name: string } | null;
 
   const buffer = await generateAssessmentDocx({
-    recipientName: recipient?.name ?? "미상",
+    recipient: recipient ?? { name: "미상" },
     roundNo: assessment.round_no,
     assessedAt: assessment.assessed_at,
     authorName: author?.name ?? "미상",

@@ -5,6 +5,7 @@ import { PDFDocument, rgb, type PDFFont, type PDFPage, type Color } from "pdf-li
 import fontkit from "@pdf-lib/fontkit";
 import { ASSESSMENT_SECTIONS, type Field } from "./assessment-form";
 import { measureText, drawTextRun as drawTextRunOnPage } from "./pdf-text";
+import { recipientInfoPairs, type RecipientInfo } from "./assessment-recipient";
 
 type Responses = Record<string, string | string[] | number | undefined>;
 
@@ -23,17 +24,21 @@ function sanitizeForPdfFont(text: string): string {
 type ChoiceItem = { label: string; checked: boolean };
 type ValueContent = { kind: "text"; text: string } | { kind: "choices"; items: ChoiceItem[] };
 
+function selectedValues(value: Responses[string]): string[] {
+  return Array.isArray(value) ? value : value !== undefined ? [String(value)] : [];
+}
+
+function toChoiceItems(options: string[], selected: string[]): ChoiceItem[] {
+  return options.map((opt) => ({
+    label: sanitizeForPdfFont(opt),
+    checked: selected.includes(opt),
+  }));
+}
+
 function fieldValueContent(field: Field, responses: Responses): ValueContent {
   const value = responses[field.code];
   if (field.type === "select" || field.type === "scale4" || field.type === "multiselect") {
-    const selected = Array.isArray(value) ? value : value !== undefined ? [String(value)] : [];
-    return {
-      kind: "choices",
-      items: (field.options ?? []).map((opt) => ({
-        label: sanitizeForPdfFont(opt),
-        checked: selected.includes(opt),
-      })),
-    };
+    return { kind: "choices", items: toChoiceItems(field.options ?? [], selectedValues(value)) };
   }
   if ((typeof value === "string" && value.trim()) || typeof value === "number") {
     const text = field.suffix ? `${value} ${field.suffix}` : String(value);
@@ -104,14 +109,14 @@ function wrapChoices(items: ChoiceItem[], font: PDFFont, size: number, maxWidth:
 }
 
 export async function generateAssessmentPdf(params: {
-  recipientName: string;
+  recipient: RecipientInfo;
   roundNo: number;
   assessedAt: string;
   authorName: string;
   responses: Responses;
   finalSummary: string;
 }): Promise<Uint8Array> {
-  const { recipientName, roundNo, assessedAt, authorName, responses, finalSummary } = params;
+  const { recipient, roundNo, assessedAt, authorName, responses, finalSummary } = params;
 
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
@@ -266,9 +271,16 @@ export async function generateAssessmentPdf(params: {
   // header
   drawFreeText("욕구조사기록지", { font: bold, size: 18, color: pine, gapAfter: 6 });
   drawFreeText(
-    `수급자: ${recipientName}   |   ${roundNo}회차   |   작성(방문사정)일: ${assessedAt}   |   작성자: ${authorName}`,
-    { font: regular, size: 9.5, color: gray, gapAfter: 12 }
+    `${roundNo}회차   |   작성(방문사정)일: ${assessedAt}   |   작성자: ${authorName}`,
+    { font: regular, size: 9.5, color: gray, gapAfter: 10 }
   );
+
+  // 원본 서식 1. 일반사항의 수급자 인적사항 칸
+  drawGroupRow("수급자");
+  for (const [label, value] of recipientInfoPairs(recipient)) {
+    drawTableRow(label, { kind: "text", text: sanitizeForPdfFont(value) });
+  }
+  y -= 10;
 
   for (const section of ASSESSMENT_SECTIONS) {
     ensureSpace(LINE_HEIGHT * 1.6 + 6);
@@ -282,6 +294,17 @@ export async function generateAssessmentPdf(params: {
       if (field.group && field.group !== lastGroup) {
         lastGroup = field.group;
         drawGroupRow(field.group);
+      }
+      if (field.optionGroups) {
+        // 원본 서식처럼 선택지를 계통별 줄로 나눠 그립니다.
+        const selected = selectedValues(responses[field.code]);
+        field.optionGroups.forEach((g, i) => {
+          drawTableRow(i === 0 ? field.label : `  ${sanitizeForPdfFont(g.label)}`, {
+            kind: "choices",
+            items: toChoiceItems(g.options, selected),
+          });
+        });
+        continue;
       }
       const suffixLabel = field.suffix ? `${field.label} (${field.suffix})` : field.label;
       drawTableRow(suffixLabel, fieldValueContent(field, responses));

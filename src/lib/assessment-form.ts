@@ -15,6 +15,11 @@ export type Field = {
   type: FieldType;
   group?: string; // 소제목 (예: "가. 위생관리") - 이전 필드와 다르면 헤더로 표시
   options?: string[];
+  // 원본 서식에서 선택지가 계통별로 줄을 나눠 배치된 경우의 구성.
+  // 저장 형식과 웹 입력 화면은 그대로 options(평면 목록)를 쓰고,
+  // 워드/PDF 출력만 이 구성을 따라 원본 서식과 같은 줄 배치로 그립니다.
+  // 여기 나열된 선택지는 options와 정확히 일치해야 합니다(검증: assertOptionGroups).
+  optionGroups?: { label: string; options: string[] }[];
   suffix?: string;
   placeholder?: string;
 };
@@ -105,6 +110,27 @@ export const ASSESSMENT_SECTIONS: Section[] = [
           "다약제내성균",
           "암",
           "알레르기",
+        ],
+        // 원본 서식은 질환을 계통별로 줄을 나눠 배치합니다.
+        optionGroups: [
+          { label: "", options: ["없음"] },
+          { label: "뇌신경계", options: ["뇌졸중(뇌출혈,뇌경색증)", "치매", "파킨슨병", "우울증"] },
+          {
+            label: "호흡·순환기계",
+            options: ["고혈압", "협심증", "심근경색증", "천식", "만성폐쇄성폐질환"],
+          },
+          { label: "내분비·대사", options: ["당뇨", "고지혈증"] },
+          {
+            label: "근골격계",
+            options: ["관절염(퇴행성·류마티스)", "골다공증", "골절·탈골 등 사고로 인한 후유증"],
+          },
+          {
+            label: "비뇨생식기계",
+            options: ["만성신부전", "요로감염", "만성방광염", "전립선비대"],
+          },
+          { label: "감각계", options: ["백내장", "녹내장", "난청", "만성중이염", "이명"] },
+          { label: "감염", options: ["결핵", "옴", "다약제내성균"] },
+          { label: "기타 질환", options: ["암", "알레르기"] },
         ],
       },
       { code: "s2a_cancer_name", label: "암 진단명", type: "text" },
@@ -645,4 +671,21 @@ export const ASSESSMENT_SECTIONS: Section[] = [
 
 export function getAllFields(): Field[] {
   return ASSESSMENT_SECTIONS.flatMap((s) => s.fields);
+}
+
+// optionGroups는 출력 전용 배치 정보일 뿐, 선택지 자체는 options와 같아야 합니다.
+// 둘이 어긋나면 출력물에서 선택지가 빠지거나 중복되므로 여기서 즉시 걸러냅니다.
+for (const field of getAllFields()) {
+  if (!field.optionGroups) continue;
+  const flattened = field.optionGroups.flatMap((g) => g.options);
+  const expected = field.options ?? [];
+  const same =
+    flattened.length === expected.length && flattened.every((o, i) => o === expected[i]);
+  if (!same) {
+    throw new Error(
+      `assessment-form: ${field.code}의 optionGroups가 options와 일치하지 않습니다.\n` +
+        `options(${expected.length}): ${JSON.stringify(expected)}\n` +
+        `optionGroups(${flattened.length}): ${JSON.stringify(flattened)}`
+    );
+  }
 }

@@ -14,14 +14,20 @@ import {
   ShadingType,
 } from "docx";
 import { ASSESSMENT_SECTIONS, type Field } from "./assessment-form";
+import { recipientInfoPairs, type RecipientInfo } from "./assessment-recipient";
 
 type Responses = Record<string, string | string[] | number | undefined>;
 
+function selectedValues(value: string | string[] | number | undefined): string[] {
+  return Array.isArray(value) ? value : value !== undefined ? [String(value)] : [];
+}
+
+function renderOptions(options: string[], selected: string[]): string {
+  return options.map((opt) => `${selected.includes(opt) ? "☑" : "☐"} ${opt}`).join("   ");
+}
+
 function renderChoiceLine(field: Field, value: string | string[] | number | undefined): string {
-  const selected = Array.isArray(value) ? value : value !== undefined ? [String(value)] : [];
-  return (field.options ?? [])
-    .map((opt) => `${selected.includes(opt) ? "☑" : "☐"} ${opt}`)
-    .join("   ");
+  return renderOptions(field.options ?? [], selectedValues(value));
 }
 
 function fieldValueText(field: Field, responses: Responses): string {
@@ -67,6 +73,30 @@ function fieldRow(label: string, value: string) {
   });
 }
 
+// 원본 서식처럼 선택지를 계통별 줄로 나눠 그립니다.
+// 첫 줄에만 문항명을 쓰고, 이후 줄은 계통명이 왼쪽 칸에 들어갑니다.
+function groupedFieldRows(field: Field, value: string | string[] | number | undefined) {
+  const selected = selectedValues(value);
+  return (field.optionGroups ?? []).map((g, i) =>
+    new TableRow({
+      children: [
+        new TableCell({
+          width: { size: LABEL_WIDTH_PCT, type: WidthType.PERCENTAGE },
+          borders: CELL_BORDERS,
+          children: [
+            cellParagraph(i === 0 ? field.label : `　${g.label}`, { bold: i === 0 }),
+          ],
+        }),
+        new TableCell({
+          width: { size: VALUE_WIDTH_PCT, type: WidthType.PERCENTAGE },
+          borders: CELL_BORDERS,
+          children: [cellParagraph(renderOptions(g.options, selected))],
+        }),
+      ],
+    })
+  );
+}
+
 function groupRow(title: string) {
   return new TableRow({
     children: [
@@ -82,14 +112,14 @@ function groupRow(title: string) {
 }
 
 export async function generateAssessmentDocx(params: {
-  recipientName: string;
+  recipient: RecipientInfo;
   roundNo: number;
   assessedAt: string;
   authorName: string;
   responses: Responses;
   finalSummary: string;
 }): Promise<Buffer> {
-  const { recipientName, roundNo, assessedAt, authorName, responses, finalSummary } = params;
+  const { recipient, roundNo, assessedAt, authorName, responses, finalSummary } = params;
 
   const children: Array<Paragraph | Table> = [
     new Paragraph({
@@ -99,11 +129,27 @@ export async function generateAssessmentDocx(params: {
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 300 },
+      spacing: { after: 200 },
       children: [
         new TextRun(
-          `수급자: ${recipientName}   |   ${roundNo}회차   |   작성(방문사정)일: ${assessedAt}   |   작성자: ${authorName}`
+          `${roundNo}회차   |   작성(방문사정)일: ${assessedAt}   |   작성자: ${authorName}`
         ),
+      ],
+    }),
+    // 원본 서식 1. 일반사항의 수급자 인적사항 칸
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: {
+        top: BORDER,
+        bottom: BORDER,
+        left: BORDER,
+        right: BORDER,
+        insideHorizontal: BORDER,
+        insideVertical: BORDER,
+      },
+      rows: [
+        groupRow("수급자"),
+        ...recipientInfoPairs(recipient).map(([label, value]) => fieldRow(label, value)),
       ],
     }),
   ];
@@ -133,6 +179,10 @@ export async function generateAssessmentDocx(params: {
       if (field.group && field.group !== lastGroup) {
         lastGroup = field.group;
         rows.push(groupRow(field.group));
+      }
+      if (field.optionGroups) {
+        rows.push(...groupedFieldRows(field, responses[field.code]));
+        continue;
       }
       const label = field.suffix ? `${field.label} (${field.suffix})` : field.label;
       rows.push(fieldRow(label, fieldValueText(field, responses)));
