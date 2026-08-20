@@ -57,6 +57,28 @@ const BOX_SIZE = FONT_SIZE * 0.85;
 const BOX_GAP = 4;
 const ITEM_GAP = 12;
 
+// The embedded Korean subset font reports a space advance of ~0.22em, but
+// viewers render it far wider (close to a full em), so any text measured with
+// the font's own space width lands well past where we calculated - showing up
+// as text spilling outside table cells and oddly wide word gaps.
+//
+// To stay independent of how a viewer treats that glyph, spaces are never
+// handed to drawText at all: text is split on spaces, each word is drawn at an
+// x we compute, and the gap between words is a fixed fraction of the font size.
+// measureText mirrors that math exactly, so measured width always equals drawn
+// width.
+const SPACE_RATIO = 0.28;
+
+function measureText(text: string, font: PDFFont, size: number): number {
+  const words = text.split(" ");
+  let width = 0;
+  for (let i = 0; i < words.length; i++) {
+    if (words[i]) width += font.widthOfTextAtSize(words[i], size);
+    if (i < words.length - 1) width += size * SPACE_RATIO;
+  }
+  return width;
+}
+
 // pdf-lib's drawText auto-advances to a new line internally when the string
 // contains a literal "\n", which our own y-cursor bookkeeping knows nothing
 // about - so any embedded newline (e.g. paragraph breaks in AI-generated
@@ -69,7 +91,7 @@ function wrapLine(text: string, font: PDFFont, size: number, maxWidth: number): 
     let current = "";
     for (const ch of paragraph) {
       const trial = current + ch;
-      if (font.widthOfTextAtSize(trial, size) > maxWidth && current) {
+      if (measureText(trial, font, size) > maxWidth && current) {
         lines.push(current);
         current = ch;
       } else {
@@ -88,7 +110,7 @@ function wrapChoices(items: ChoiceItem[], font: PDFFont, size: number, maxWidth:
   let current: ChoiceItem[] = [];
   let currentWidth = 0;
   for (const item of items) {
-    const itemWidth = BOX_SIZE + BOX_GAP + font.widthOfTextAtSize(item.label, size) + ITEM_GAP;
+    const itemWidth = BOX_SIZE + BOX_GAP + measureText(item.label, font, size) + ITEM_GAP;
     if (current.length > 0 && currentWidth + itemWidth > maxWidth) {
       lines.push(current);
       current = [];
@@ -137,6 +159,28 @@ export async function generateAssessmentPdf(params: {
     if (y - needed < MARGIN_BOTTOM) newPage();
   }
 
+  // Draws one line of text word by word, advancing x ourselves so the rendered
+  // width always matches measureText (see SPACE_RATIO above).
+  function drawTextRun(
+    text: string,
+    x: number,
+    textY: number,
+    font: PDFFont,
+    size: number,
+    color: Color
+  ) {
+    const words = text.split(" ");
+    let cx = x;
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      if (word) {
+        page.drawText(word, { x: cx, y: textY, size, font, color });
+        cx += font.widthOfTextAtSize(word, size);
+      }
+      if (i < words.length - 1) cx += size * SPACE_RATIO;
+    }
+  }
+
   function drawFreeText(
     text: string,
     opts: { font: PDFFont; size: number; color: Color; gapAfter?: number; maxWidth?: number }
@@ -146,7 +190,7 @@ export async function generateAssessmentPdf(params: {
     const lines = wrapLine(sanitizeForPdfFont(text), opts.font, opts.size, maxWidth);
     for (const l of lines) {
       ensureSpace(lineHeight);
-      page.drawText(l, { x: MARGIN_X, y, size: opts.size, font: opts.font, color: opts.color });
+      drawTextRun(l, MARGIN_X, y, opts.font, opts.size, opts.color);
       y -= lineHeight;
     }
     if (opts.gapAfter) y -= opts.gapAfter;
@@ -166,8 +210,8 @@ export async function generateAssessmentPdf(params: {
         color: item.checked ? ink : undefined,
       });
       cx += BOX_SIZE + BOX_GAP;
-      page.drawText(item.label, { x: cx, y: textY, size: FONT_SIZE, font: regular, color: ink });
-      cx += regular.widthOfTextAtSize(item.label, FONT_SIZE) + ITEM_GAP;
+      drawTextRun(item.label, cx, textY, regular, FONT_SIZE, ink);
+      cx += measureText(item.label, regular, FONT_SIZE) + ITEM_GAP;
     }
   }
 
@@ -204,26 +248,14 @@ export async function generateAssessmentPdf(params: {
 
     let ly = rowTop - ROW_PAD_Y - FONT_SIZE;
     for (const l of labelLines) {
-      page.drawText(l, {
-        x: MARGIN_X + CELL_PAD_X,
-        y: ly,
-        size: FONT_SIZE,
-        font: bold,
-        color: ink,
-      });
+      drawTextRun(l, MARGIN_X + CELL_PAD_X, ly, bold, FONT_SIZE, ink);
       ly -= LINE_HEIGHT;
     }
 
     let vy = rowTop - ROW_PAD_Y - FONT_SIZE;
     if (value.kind === "text") {
       for (const l of wrapLine(value.text, regular, FONT_SIZE, valueWidth)) {
-        page.drawText(l, {
-          x: MARGIN_X + LABEL_COL_WIDTH + CELL_PAD_X,
-          y: vy,
-          size: FONT_SIZE,
-          font: regular,
-          color: ink,
-        });
+        drawTextRun(l, MARGIN_X + LABEL_COL_WIDTH + CELL_PAD_X, vy, regular, FONT_SIZE, ink);
         vy -= LINE_HEIGHT;
       }
     } else {
@@ -250,13 +282,14 @@ export async function generateAssessmentPdf(params: {
       borderColor: line,
       borderWidth: 0.6,
     });
-    page.drawText(sanitizeForPdfFont(text), {
-      x: MARGIN_X + CELL_PAD_X,
-      y: rowTop - ROW_PAD_Y - FONT_SIZE,
-      size: FONT_SIZE,
-      font: bold,
-      color: pine,
-    });
+    drawTextRun(
+      sanitizeForPdfFont(text),
+      MARGIN_X + CELL_PAD_X,
+      rowTop - ROW_PAD_Y - FONT_SIZE,
+      bold,
+      FONT_SIZE,
+      pine
+    );
     y = rowBottom;
   }
 
@@ -305,13 +338,7 @@ export async function generateAssessmentPdf(params: {
     });
     let ty = boxTop - ROW_PAD_Y - FONT_SIZE;
     for (const l of lines) {
-      page.drawText(l, {
-        x: MARGIN_X + CELL_PAD_X,
-        y: ty,
-        size: FONT_SIZE + 0.5,
-        font: regular,
-        color: ink,
-      });
+      drawTextRun(l, MARGIN_X + CELL_PAD_X, ty, regular, FONT_SIZE + 0.5, ink);
       ty -= LINE_HEIGHT;
     }
     y = boxBottom;
