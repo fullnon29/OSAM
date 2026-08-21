@@ -1,10 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AssessmentFormFields, { type Responses } from "./AssessmentFormFields";
 import { checkCompliance, summarizeCompliance } from "@/lib/assessment-compliance";
+import {
+  clearDraft,
+  draftKey,
+  enqueueSave,
+  flushQueue,
+  loadDraft,
+  readQueue,
+  saveDraft,
+} from "@/lib/offline-store";
 
 export type ExistingAssessment = {
   id: string;
@@ -47,6 +56,12 @@ export default function AssessmentEditor({
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineNote, setOfflineNote] = useState<string | null>(null);
+  const [restoredAt, setRestoredAt] = useState<string | null>(null);
+
+  const storageKey = draftKey(recipientId, existing?.id ?? null);
+  // 첫 렌더에서 불러온 값을 곧바로 다시 저장해 덮어쓰지 않도록 막습니다.
+  const hydrated = useRef(false);
 
   function onChange(code: string, value: Responses[string]) {
     setResponses((prev) => ({ ...prev, [code]: value }));
@@ -79,6 +94,62 @@ export default function AssessmentEditor({
     setFinalSummary(json.aiSummary);
   }
 
+  // 기기에 남아 있던 작성 중 내용을 되살립니다.
+  // 통신이 끊기거나 앱이 꺼져도 현장에서 쓴 내용이 사라지지 않게 합니다.
+  //
+  // 기기 저장소는 서버 렌더링 시점에는 없으므로 화면이 뜬 뒤에 읽어야 하고,
+  // 그래서 여기서 상태를 채웁니다(외부 저장소와 동기화하는 경우).
+  useEffect(() => {
+    const saved = loadDraft<{
+      responses: Responses;
+      assessedAt: string;
+      draftSummary: string;
+      aiSummary: string;
+      finalSummary: string;
+    }>(storageKey);
+    if (saved) {
+      /* eslint-disable react-hooks/set-state-in-effect -- 기기 저장소는 서버 렌더링 때 없어 화면이 뜬 뒤 읽어야 합니다 */
+      setResponses(saved.value.responses ?? {});
+      setAssessedAt(saved.value.assessedAt || assessedAt);
+      setDraftSummary(saved.value.draftSummary ?? "");
+      setAiSummary(saved.value.aiSummary ?? "");
+      setFinalSummary(saved.value.finalSummary ?? "");
+      setRestoredAt(saved.savedAt);
+      /* eslint-enable react-hooks/set-state-in-effect */
+    }
+    hydrated.current = true;
+    // 화면을 열 때 한 번만 복원합니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 입력할 때마다 기기에 저장해 둡니다.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    saveDraft(storageKey, { responses, assessedAt, draftSummary, aiSummary, finalSummary });
+  }, [storageKey, responses, assessedAt, draftSummary, aiSummary, finalSummary]);
+
+  const trySendQueue = useCallback(async () => {
+    if (readQueue().length === 0) return;
+    const result = await flushQueue();
+    if (result.sent > 0 && result.remaining === 0) {
+      setOfflineNote(null);
+      router.refresh();
+    } else if (result.remaining > 0) {
+      setOfflineNote(`전송하지 못한 기록 ${result.remaining}건이 기기에 저장돼 있습니다. 연결되면 자동으로 보냅니다.`);
+    }
+  }, [router]);
+
+  // 연결이 돌아오면 밀린 저장을 자동으로 보냅니다.
+  // 브라우저의 online 사건을 구독해 그때 상태를 갱신합니다.
+  useEffect(() => {
+    // 화면이 뜬 직후 한 번 시도하고, 이후에는 online 사건에 반응합니다.
+    // 전송은 비동기라 상태 갱신도 이 렌더 이후에 일어납니다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void trySendQueue();
+    window.addEventListener("online", trySendQueue);
+    return () => window.removeEventListener("online", trySendQueue);
+  }, [trySendQueue]);
+
   async function save(status: "draft" | "completed") {
     setSaving(true);
     setError(null);
@@ -93,28 +164,43 @@ export default function AssessmentEditor({
       status,
     };
 
-    const res = existing
-      ? await fetch(`/api/assessment/assessments/${existing.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        })
-      : await fetch("/api/assessment/assessments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+    try {
+      const res = existing
+        ? await fetch(`/api/assessment/assessments/${existing.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+        : await fetch("/api/assessment/assessments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
 
-    const json = await res.json();
-    setSaving(false);
+      const json = await res.json();
+      setSaving(false);
 
-    if (!res.ok) {
-      setError(json.error || "저장 중 오류가 발생했습니다.");
-      return;
+      if (!res.ok) {
+        setError(json.error || "저장 중 오류가 발생했습니다.");
+        return;
+      }
+
+      clearDraft(storageKey);
+      router.push(`/assessment/recipients/${recipientId}`);
+      router.refresh();
+    } catch {
+      // 연결이 없어 보내지 못한 것이므로, 잃지 않도록 기기에 넣어 둡니다.
+      setSaving(false);
+      enqueueSave({
+        assessmentId: existing?.id ?? null,
+        recipientId,
+        recipientName,
+        payload,
+      });
+      setOfflineNote(
+        "연결되지 않아 기기에 저장했습니다. 신호가 잡히면 자동으로 전송되니 이 화면을 닫으셔도 됩니다."
+      );
     }
-
-    router.push(`/assessment/recipients/${recipientId}`);
-    router.refresh();
   }
 
   return (
@@ -171,6 +257,14 @@ export default function AssessmentEditor({
       </div>
 
       {error && <div className="form-error">{error}</div>}
+
+      {offlineNote && <div className="offline-note">{offlineNote}</div>}
+
+      {restoredAt && (
+        <div className="offline-note subtle">
+          작성 중이던 내용을 기기에서 되살렸습니다 ({new Date(restoredAt).toLocaleString("ko-KR")}).
+        </div>
+      )}
 
       <AssessmentFormFields responses={responses} onChange={onChange} />
 

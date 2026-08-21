@@ -379,3 +379,7 @@ table.admin-table tbody tr:hover{background:var(--paper);}
 .unmatched-warn{font-size:11.5px; font-weight:700; color:#8A4B24; background:#FBEAD9; padding:3px 10px; border-radius:100px;}
 .unmatched-actions{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
 .unmatched-actions select{flex:1; min-width:220px; padding:8px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; background:var(--white); color:var(--ink); font-family:inherit;}
+
+/* 오프라인 저장 안내 */
+.offline-note{background:#FBEAD9; border:1px solid var(--ochre-soft); color:#8A4B24; border-radius:12px; padding:12px 16px; font-size:13px; line-height:1.65; margin-bottom:14px;}
+.offline-note.subtle{background:var(--paper-deep); border-color:var(--line); color:var(--ink-soft);}
