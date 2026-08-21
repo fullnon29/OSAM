@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatKst } from "@/lib/format";
 import type { Recipient } from "./RecipientsBoard";
 import RecipientDocuments, { type CareDocument } from "./RecipientDocuments";
+import RecipientRiskHistory, { type RiskRecord } from "./RecipientRiskHistory";
 
 export type AssessmentSummary = {
   id: string;
@@ -17,6 +18,7 @@ export default function RecipientDetailBoard({
   recipient,
   assessments,
   documents,
+  riskRecords,
 }: {
   recipient: Recipient & {
     ltc_number: string | null;
@@ -27,6 +29,7 @@ export default function RecipientDetailBoard({
   };
   assessments: AssessmentSummary[];
   documents: CareDocument[];
+  riskRecords: RiskRecord[];
 }) {
   return (
     <div className="app-wrap">
@@ -124,6 +127,10 @@ export default function RecipientDetailBoard({
         </div>
       ))}
       <div style={{ marginTop: 32 }}>
+        <RecipientRiskHistory records={riskRecords} />
+      </div>
+
+      <div style={{ marginTop: 8 }}>
         <RecipientDocuments documents={documents} />
       </div>
     </div>

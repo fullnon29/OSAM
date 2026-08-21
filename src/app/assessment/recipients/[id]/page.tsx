@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import TopBar from "@/components/training/TopBar";
 import RecipientDetailBoard from "@/components/assessment/RecipientDetailBoard";
 import type { CareDocument } from "@/components/assessment/RecipientDocuments";
+import type { RiskRecord } from "@/components/assessment/RecipientRiskHistory";
 
 export default async function RecipientDetailPage({
   params,
@@ -44,6 +45,13 @@ export default async function RecipientDetailPage({
     .eq("care_recipient_id", id)
     .order("created_at", { ascending: false });
 
+  // 보관 서류에서 읽어낸 낙상·욕창 위험도 평가(요구사항 10)
+  const { data: riskRecords } = await supabase
+    .from("care_documents")
+    .select("id, filename, risk_assessments")
+    .eq("care_recipient_id", id)
+    .not("risk_assessments", "is", null);
+
   return (
     <>
       <TopBar
@@ -54,6 +62,7 @@ export default async function RecipientDetailPage({
         recipient={recipient}
         assessments={assessments ?? []}
         documents={(documents ?? []) as CareDocument[]}
+        riskRecords={(riskRecords ?? []) as RiskRecord[]}
       />
     </>
   );

@@ -360,3 +360,15 @@ table.admin-table tbody tr:hover{background:var(--paper);}
 .prior-doc-note{background:#FBEAD9; border-color:#E4C79A;}
 .prior-doc-note .prior-doc-source{font-size:12.5px; color:var(--ink-soft);}
 .prior-doc-note p{margin-top:8px; font-size:13px; color:var(--ink); line-height:1.7;}
+
+/* 낙상·욕창 위험도 이력 */
+.risk-overdue{margin-left:10px; font-size:11.5px; font-weight:700; color:#8A4B24; background:#FBEAD9; padding:3px 10px; border-radius:100px;}
+.risk-list{display:flex; flex-direction:column; gap:8px; margin-bottom:28px;}
+.risk-row{background:var(--white); border:1px solid var(--line); border-radius:12px; padding:12px 16px;}
+.risk-date{font-size:12px; color:var(--ink-soft); margin-bottom:6px;}
+.risk-scores{display:flex; flex-wrap:wrap; gap:6px;}
+.risk-chip{font-size:12px; font-weight:600; padding:4px 10px; border-radius:100px;}
+.risk-chip.risk-low{background:#E4EDE5; color:var(--pine-deep);}
+.risk-chip.risk-mid{background:var(--paper-deep); color:var(--ink);}
+.risk-chip.risk-high{background:#FBEAD9; color:#8A4B24;}
+.risk-note{margin-top:8px; font-size:12.5px; color:var(--ink-soft); line-height:1.65;}
