@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export type Recipient = {
@@ -10,8 +9,12 @@ export type Recipient = {
   birth_date: string | null;
   gender: string | null;
   ltc_grade: string | null;
+  ltc_number: string | null;
+  guardian_name: string | null;
   is_active: boolean;
 };
+
+export type AssessmentInfo = { count: number; latest: string | null };
 
 type FormState = {
   name: string;
@@ -37,8 +40,43 @@ const EMPTY_FORM: FormState = {
   memo: "",
 };
 
-export default function RecipientsBoard({ recipients }: { recipients: Recipient[] }) {
+export default function RecipientsBoard({
+  recipients,
+  documentCounts,
+  assessmentInfo,
+}: {
+  recipients: Recipient[];
+  documentCounts: Record<string, number>;
+  assessmentInfo: Record<string, AssessmentInfo>;
+}) {
   const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [gradeFilter, setGradeFilter] = useState("전체");
+  const [activeFilter, setActiveFilter] = useState("전체");
+
+  // 등급 단추는 실제 등록된 등급만 만들어, 쓰지 않는 값이 늘어서지 않게 합니다.
+  const grades = useMemo(() => {
+    const found = new Set<string>();
+    for (const r of recipients) if (r.ltc_grade) found.add(r.ltc_grade);
+    return ["전체", ...[...found].sort(), "미상"];
+  }, [recipients]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return recipients.filter((r) => {
+      if (gradeFilter === "미상" ? r.ltc_grade : gradeFilter !== "전체" && r.ltc_grade !== gradeFilter)
+        return false;
+      if (activeFilter === "이용중" && !r.is_active) return false;
+      if (activeFilter === "종료" && r.is_active) return false;
+      if (!q) return true;
+      // 이름·인정번호·보호자로 찾습니다(현장에서 이 셋으로 찾습니다).
+      return (
+        r.name.toLowerCase().includes(q) ||
+        (r.ltc_number ?? "").toLowerCase().includes(q) ||
+        (r.guardian_name ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [recipients, query, gradeFilter, activeFilter]);
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,26 +126,93 @@ export default function RecipientsBoard({ recipients }: { recipients: Recipient[
         </button>
       </div>
 
-      <div className="course-grid">
-        {recipients.length === 0 && (
-          <div className="empty-note">등록된 수급자가 없습니다.</div>
-        )}
-        {recipients.map((r) => (
-          <Link className="course-card" key={r.id} href={`/assessment/recipients/${r.id}`}>
-            <div className="cat">{r.ltc_grade ?? "등급 미상"}</div>
-            <div className="name">{r.name}</div>
-            <div className="meta">
-              {r.birth_date ?? "생년월일 미상"} · {r.gender === "M" ? "남" : r.gender === "F" ? "여" : "성별 미상"}
-            </div>
-            <div className="row-actions">
-              <span className={`status ${r.is_active ? "done" : "todo"}`}>
-                {r.is_active ? "이용 중" : "종료"}
-              </span>
-              <span className="btn small">상세 보기</span>
-            </div>
-          </Link>
-        ))}
+      <div className="list-toolbar">
+        <div className="filter-row">
+          {grades.map((g) => (
+            <button
+              key={g}
+              type="button"
+              className={`filter-tag ${gradeFilter === g ? "active" : ""}`}
+              onClick={() => setGradeFilter(g)}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+        <div className="filter-row">
+          {["전체", "이용중", "종료"].map((v) => (
+            <button
+              key={v}
+              type="button"
+              className={`filter-tag ${activeFilter === v ? "active" : ""}`}
+              onClick={() => setActiveFilter(v)}
+            >
+              {v}
+            </button>
+          ))}
+          <input
+            className="list-search"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="이름 · 인정번호 · 보호자 검색"
+          />
+          <span className="list-count">조회 {filtered.length}명</span>
+        </div>
       </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-note">
+          {recipients.length === 0 ? "등록된 수급자가 없습니다." : "조건에 맞는 수급자가 없습니다."}
+        </div>
+      ) : (
+        <div className="list-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ width: 44 }}>번호</th>
+                <th>이름</th>
+                <th>생년월일</th>
+                <th style={{ width: 50 }}>성별</th>
+                <th style={{ width: 66 }}>등급</th>
+                <th>인정번호</th>
+                <th>보호자</th>
+                <th style={{ width: 62 }}>서류</th>
+                <th>욕구사정</th>
+                <th style={{ width: 70 }}>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r, i) => {
+                const docs = documentCounts[r.id] ?? 0;
+                const assess = assessmentInfo[r.id];
+                return (
+                  <tr key={r.id} onClick={() => router.push(`/assessment/recipients/${r.id}`)}>
+                    <td className="num">{i + 1}</td>
+                    <td className="strong">{r.name}</td>
+                    <td>{r.birth_date ?? "-"}</td>
+                    <td>{r.gender === "M" ? "남" : r.gender === "F" ? "여" : "-"}</td>
+                    <td>{r.ltc_grade ?? "-"}</td>
+                    <td className="mono">{r.ltc_number ?? "-"}</td>
+                    <td>{r.guardian_name ?? "-"}</td>
+                    <td className="num">{docs > 0 ? `${docs}건` : "-"}</td>
+                    <td>
+                      {assess
+                        ? `${assess.count}회차${assess.latest ? ` · ${assess.latest}` : ""}`
+                        : "-"}
+                    </td>
+                    <td>
+                      <span className={`status ${r.is_active ? "done" : "todo"}`}>
+                        {r.is_active ? "이용 중" : "종료"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {form && (
         <div className="modal-bg active" onClick={() => setForm(null)}>
