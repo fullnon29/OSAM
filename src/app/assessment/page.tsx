@@ -45,6 +45,12 @@ export default async function AssessmentHome() {
     .from("needs_assessments")
     .select("care_recipient_id, assessed_at");
 
+  // 아직 어느 어르신에게도 붙지 않은 서류가 몇 건인지 알려 줍니다.
+  const { count: unmatchedCount } = await supabase
+    .from("care_documents")
+    .select("*", { count: "exact", head: true })
+    .is("care_recipient_id", null);
+
   const documentCounts: Record<string, number> = {};
   for (const row of docRows) {
     const key = row.care_recipient_id;
@@ -74,6 +80,7 @@ export default async function AssessmentHome() {
         recipients={(recipients ?? []) as Recipient[]}
         documentCounts={documentCounts}
         assessmentInfo={assessmentInfo}
+        unmatchedCount={unmatchedCount ?? 0}
       />
     </>
   );

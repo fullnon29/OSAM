@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export type Recipient = {
@@ -44,10 +45,12 @@ export default function RecipientsBoard({
   recipients,
   documentCounts,
   assessmentInfo,
+  unmatchedCount,
 }: {
   recipients: Recipient[];
   documentCounts: Record<string, number>;
   assessmentInfo: Record<string, AssessmentInfo>;
+  unmatchedCount: number;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -114,16 +117,27 @@ export default function RecipientsBoard({
           <h1>욕구사정 · 수급자 관리</h1>
           <p>어르신을 등록하고 회차별 욕구조사기록지를 작성·조회합니다.</p>
         </div>
-        <button
-          className="btn small"
-          type="button"
-          onClick={() => {
-            setForm({ ...EMPTY_FORM });
-            setError(null);
-          }}
-        >
-          + 신규 수급자 등록
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {unmatchedCount > 0 && (
+            <Link
+              className="btn outline small"
+              href="/assessment/documents/unmatched"
+              style={{ width: "auto" }}
+            >
+              미연결 서류 {unmatchedCount}건
+            </Link>
+          )}
+          <button
+            className="btn small"
+            type="button"
+            onClick={() => {
+              setForm({ ...EMPTY_FORM });
+              setError(null);
+            }}
+          >
+            + 신규 수급자 등록
+          </button>
+        </div>
       </div>
 
       <div className="list-toolbar">

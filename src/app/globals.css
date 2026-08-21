@@ -372,3 +372,10 @@ table.admin-table tbody tr:hover{background:var(--paper);}
 .risk-chip.risk-mid{background:var(--paper-deep); color:var(--ink);}
 .risk-chip.risk-high{background:#FBEAD9; color:#8A4B24;}
 .risk-note{margin-top:8px; font-size:12.5px; color:var(--ink-soft); line-height:1.65;}
+
+/* 미연결 서류 정리 */
+.unmatched-row{flex-direction:column; align-items:stretch; gap:10px;}
+.unmatched-meta{display:flex; flex-wrap:wrap; align-items:center; gap:10px;}
+.unmatched-warn{font-size:11.5px; font-weight:700; color:#8A4B24; background:#FBEAD9; padding:3px 10px; border-radius:100px;}
+.unmatched-actions{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+.unmatched-actions select{flex:1; min-width:220px; padding:8px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; background:var(--white); color:var(--ink); font-family:inherit;}
