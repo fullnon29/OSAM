@@ -37,6 +37,19 @@ const EMPTY_RECIPIENT: RecipientForm = {
   guardian_phone: "",
 };
 
+/** 되살릴 내용이 실제로 있는지 봅니다. 빈 서식을 되살렸다고 알리면 혼란스럽습니다. */
+function hasContent(
+  recipient: RecipientForm,
+  responses: Responses,
+  finalSummary: string
+): boolean {
+  if (Object.values(recipient).some((v) => v.trim() !== "")) return true;
+  if (finalSummary.trim() !== "") return true;
+  return Object.values(responses).some((v) =>
+    Array.isArray(v) ? v.length > 0 : v !== undefined && v !== ""
+  );
+}
+
 const TEXT_FIELDS: [keyof RecipientForm, string, string?][] = [
   ["name", "성함 (필수)"],
   ["birth_date", "생년월일", "date"],
@@ -81,11 +94,14 @@ export default function OfflineNewAssessment() {
       finalSummary: string;
     }>(DRAFT_KEY);
     if (saved) {
+      const r = saved.value.recipient ?? EMPTY_RECIPIENT;
+      const resp = saved.value.responses ?? {};
+      const summary = saved.value.finalSummary ?? "";
       /* eslint-disable react-hooks/set-state-in-effect */
-      setRecipient(saved.value.recipient ?? EMPTY_RECIPIENT);
-      setResponses(saved.value.responses ?? {});
-      setFinalSummary(saved.value.finalSummary ?? "");
-      setRestoredAt(saved.savedAt);
+      setRecipient(r);
+      setResponses(resp);
+      setFinalSummary(summary);
+      if (hasContent(r, resp, summary)) setRestoredAt(saved.savedAt);
       /* eslint-enable react-hooks/set-state-in-effect */
     }
     setAssessedAt(saved?.value.assessedAt || new Date().toISOString().slice(0, 10));
@@ -94,6 +110,11 @@ export default function OfflineNewAssessment() {
 
   useEffect(() => {
     if (!hydrated.current) return;
+    // 저장을 마쳐 서식이 빈 상태면 남겨 둘 이유가 없습니다.
+    if (!hasContent(recipient, responses, finalSummary)) {
+      clearDraft(DRAFT_KEY);
+      return;
+    }
     saveDraft(DRAFT_KEY, { recipient, responses, assessedAt, finalSummary });
   }, [recipient, responses, assessedAt, finalSummary]);
 

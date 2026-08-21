@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Serif_KR, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import PendingUploads from "@/components/PendingUploads";
 
 const notoSerifKR = Noto_Serif_KR({
   variable: "--font-noto-serif-kr",
@@ -31,6 +32,7 @@ export default function RootLayout({
     >
       <body>
         <ServiceWorkerRegistrar />
+        <PendingUploads />
         {children}
       </body>
     </html>

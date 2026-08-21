@@ -383,3 +383,12 @@ table.admin-table tbody tr:hover{background:var(--paper);}
 /* 오프라인 저장 안내 */
 .offline-note{background:#FBEAD9; border:1px solid var(--ochre-soft); color:#8A4B24; border-radius:12px; padding:12px 16px; font-size:13px; line-height:1.65; margin-bottom:14px;}
 .offline-note.subtle{background:var(--paper-deep); border-color:var(--line); color:var(--ink-soft);}
+
+/* 기기에 남은 전송 대기 기록 알림. 어느 화면에서든 아래쪽에 조용히 떠 있습니다. */
+.pending-uploads{position:fixed; right:16px; bottom:16px; z-index:60; display:flex; align-items:center; gap:10px;
+  background:#FBEAD9; border:1px solid var(--ochre-soft); color:#8A4B24; border-radius:100px;
+  padding:9px 14px; font-size:13px; box-shadow:0 6px 20px rgba(0,0,0,.12);}
+.pending-uploads button{font-family:inherit; font-size:12.5px; font-weight:600; border:none; cursor:pointer;
+  background:var(--pine-deep); color:#fff; border-radius:100px; padding:6px 12px;}
+.pending-uploads button:disabled{opacity:.6; cursor:default;}
+@media (max-width:520px){ .pending-uploads{left:16px; right:16px; justify-content:space-between;} }
