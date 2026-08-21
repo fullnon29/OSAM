@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { formatKst } from "@/lib/format";
 import type { Recipient } from "./RecipientsBoard";
+import RecipientDocuments, { type CareDocument } from "./RecipientDocuments";
 
 export type AssessmentSummary = {
   id: string;
@@ -15,6 +16,7 @@ export type AssessmentSummary = {
 export default function RecipientDetailBoard({
   recipient,
   assessments,
+  documents,
 }: {
   recipient: Recipient & {
     ltc_number: string | null;
@@ -24,6 +26,7 @@ export default function RecipientDetailBoard({
     memo: string | null;
   };
   assessments: AssessmentSummary[];
+  documents: CareDocument[];
 }) {
   return (
     <div className="app-wrap">
@@ -120,6 +123,9 @@ export default function RecipientDetailBoard({
           </div>
         </div>
       ))}
+      <div style={{ marginTop: 32 }}>
+        <RecipientDocuments documents={documents} />
+      </div>
     </div>
   );
 }
