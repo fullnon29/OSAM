@@ -127,6 +127,15 @@ export default function RecipientsBoard({
               미연결 서류 {unmatchedCount}건
             </Link>
           )}
+          {/* 방문 현장에서 쓰는 화면. 신호가 없어도 열리도록 일반 링크로 이동합니다. */}
+          <a
+            className="btn outline small"
+            href="/assessment/offline"
+            style={{ width: "auto" }}
+            title="신호가 없는 곳에서도 신규 어르신 욕구사정을 작성할 수 있습니다."
+          >
+            방문 작성 (오프라인)
+          </a>
           <button
             className="btn small"
             type="button"

@@ -13,14 +13,30 @@ const QUEUE_KEY = "osam.queue";
 
 export type QueuedSave = {
   id: string;
+  kind: "recipient" | "assessment";
   /** 기존 기록 수정이면 그 id, 새 기록이면 null */
   assessmentId: string | null;
+  /**
+   * 서버가 발급한 수급자 id. 오프라인에서 새로 만든 어르신은 아직 id가 없으므로
+   * 기기에서 임시로 만든 값(local: 로 시작)이 들어갑니다. 전송할 때 서버가 준
+   * 진짜 id로 바꿔 넣습니다.
+   */
   recipientId: string;
   recipientName: string;
-  payload: unknown;
+  payload: Record<string, unknown>;
   queuedAt: string;
   lastError: string | null;
 };
+
+const LOCAL_ID_PREFIX = "local:";
+
+export function newLocalRecipientId(): string {
+  return `${LOCAL_ID_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function isLocalRecipientId(id: string): boolean {
+  return id.startsWith(LOCAL_ID_PREFIX);
+}
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
@@ -84,8 +100,11 @@ function writeQueue(items: QueuedSave[]) {
   }
 }
 
-export function enqueueSave(item: Omit<QueuedSave, "id" | "queuedAt" | "lastError">): QueuedSave {
+export function enqueueSave(
+  item: Omit<QueuedSave, "id" | "queuedAt" | "lastError" | "kind"> & { kind?: QueuedSave["kind"] }
+): QueuedSave {
   const queued: QueuedSave = {
+    kind: item.kind ?? "assessment",
     ...item,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     queuedAt: new Date().toISOString(),
@@ -94,7 +113,12 @@ export function enqueueSave(item: Omit<QueuedSave, "id" | "queuedAt" | "lastErro
   const items = readQueue();
   // 같은 기록을 여러 번 저장했다면 마지막 내용만 보내면 됩니다.
   const rest = items.filter(
-    (q) => !(q.recipientId === item.recipientId && q.assessmentId === item.assessmentId)
+    (q) =>
+      !(
+        q.kind === queued.kind &&
+        q.recipientId === item.recipientId &&
+        q.assessmentId === item.assessmentId
+      )
   );
   writeQueue([...rest, queued]);
   return queued;
@@ -112,22 +136,60 @@ export type FlushResult = { sent: number; failed: number; remaining: number };
 
 /** 대기 중인 저장을 서버로 보냅니다. 실패한 건은 대기열에 남겨 둡니다. */
 export async function flushQueue(): Promise<FlushResult> {
-  const items = readQueue();
+  // 새로 만든 어르신을 먼저 보내야 그 욕구사정에 붙일 id가 생깁니다.
+  const items = [...readQueue()].sort((a, b) =>
+    a.kind === b.kind ? 0 : a.kind === "recipient" ? -1 : 1
+  );
   let sent = 0;
   let failed = 0;
+  // 기기에서 임시로 쓰던 id -> 서버가 발급한 진짜 id
+  const idMap = new Map<string, string>();
 
   for (const item of items) {
     try {
+      if (item.kind === "recipient") {
+        const res = await fetch("/api/assessment/recipients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.payload),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.recipient?.id) {
+          idMap.set(item.recipientId, json.recipient.id as string);
+          removeFromQueue(item.id);
+          sent++;
+        } else {
+          markQueueError(item.id, json.error || `서버 오류 (${res.status})`);
+          failed++;
+        }
+        continue;
+      }
+
+      // 오프라인에서 만든 어르신의 기록이면, 방금 받은 진짜 id 로 바꿔 보냅니다.
+      let payload = item.payload;
+      let recipientId = item.recipientId;
+      if (isLocalRecipientId(recipientId)) {
+        const realId = idMap.get(recipientId);
+        if (!realId) {
+          // 어르신 등록이 아직 안 됐으면 이 기록도 다음 기회로 미룹니다.
+          markQueueError(item.id, "어르신 등록이 먼저 전송되어야 합니다");
+          failed++;
+          continue;
+        }
+        recipientId = realId;
+        payload = { ...item.payload, care_recipient_id: realId };
+      }
+
       const res = item.assessmentId
         ? await fetch(`/api/assessment/assessments/${item.assessmentId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(item.payload),
+            body: JSON.stringify(payload),
           })
         : await fetch("/api/assessment/assessments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(item.payload),
+            body: JSON.stringify(payload),
           });
 
       if (res.ok) {
