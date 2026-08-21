@@ -17,7 +17,7 @@ export async function GET(
   const { data: assessment, error } = await admin
     .from("needs_assessments")
     .select(
-      "round_no, assessed_at, responses, final_summary, status, care_recipients(name, birth_date, gender, ltc_grade, ltc_number), profiles(name)"
+      "round_no, assessed_at, responses, final_summary, status, form_version, care_recipients(name, birth_date, gender, ltc_grade, ltc_number), profiles(name)"
     )
     .eq("id", id)
     .single();
@@ -42,6 +42,7 @@ export async function GET(
     authorName: author?.name ?? "미상",
     responses: (assessment.responses ?? {}) as Record<string, string | string[] | number | undefined>,
     finalSummary: assessment.final_summary ?? "",
+    formVersion: assessment.form_version,
   });
 
   const filename = encodeURIComponent(

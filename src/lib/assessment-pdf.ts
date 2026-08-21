@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { PDFDocument, rgb, type PDFFont, type PDFPage, type Color } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-import { ASSESSMENT_SECTIONS, type Field } from "./assessment-form";
+import { getSections, type Field } from "./assessment-form";
 import { measureText, drawTextRun as drawTextRunOnPage } from "./pdf-text";
 import { recipientInfoPairs, type RecipientInfo } from "./assessment-recipient";
 import { formatBmi } from "./assessment-metrics";
@@ -120,6 +120,8 @@ export async function generateAssessmentPdf(params: {
   authorName: string;
   responses: Responses;
   finalSummary: string;
+  /** 기록에 저장된 서식 버전. 생략하면 현재 서식으로 봅니다. */
+  formVersion?: string | null;
 }): Promise<Uint8Array> {
   const { recipient, roundNo, assessedAt, authorName, responses, finalSummary } = params;
 
@@ -286,7 +288,7 @@ export async function generateAssessmentPdf(params: {
     drawTableRow(label, { kind: "text", text: sanitizeForPdfFont(value) });
   }
 
-  for (const section of ASSESSMENT_SECTIONS) {
+  for (const section of getSections(params.formVersion)) {
     // 제목은 아래 표와 한 덩어리로 읽혀야 하므로 위쪽 여백을 아래쪽보다 넓게 두고,
     // 제목만 페이지 끝에 홀로 남지 않도록 첫 줄까지 들어갈 자리를 함께 확보합니다.
     ensureSpace(SECTION_GAP_BEFORE + SECTION_TITLE_SIZE + SECTION_GAP_AFTER + LINE_HEIGHT * 3);

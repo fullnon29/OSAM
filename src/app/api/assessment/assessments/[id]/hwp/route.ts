@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSocialWorker } from "@/lib/require-social-worker";
-import { generateAssessmentHwp } from "@/lib/assessment-hwp";
+import { generateAssessmentHwp, HwpFormVersionMismatchError } from "@/lib/assessment-hwp";
 
 export async function GET(
   request: Request,
@@ -15,7 +15,7 @@ export async function GET(
 
   const { data: assessment, error } = await admin
     .from("needs_assessments")
-    .select("round_no, responses, status, care_recipients(name)")
+    .select("round_no, responses, status, form_version, care_recipients(name)")
     .eq("id", id)
     .single();
 
@@ -31,9 +31,19 @@ export async function GET(
 
   const recipient = assessment.care_recipients as unknown as { name: string } | null;
 
-  const buffer = await generateAssessmentHwp(
-    (assessment.responses ?? {}) as Record<string, string | string[] | number | undefined>
-  );
+  let buffer: Buffer;
+  try {
+    buffer = await generateAssessmentHwp(
+      (assessment.responses ?? {}) as Record<string, string | string[] | number | undefined>,
+      assessment.form_version
+    );
+  } catch (e) {
+    // 템플릿과 서식 버전이 다르면 잘못된 칸에 체크된 문서가 나가므로 만들지 않습니다.
+    if (e instanceof HwpFormVersionMismatchError) {
+      return NextResponse.json({ error: e.message }, { status: 409 });
+    }
+    throw e;
+  }
 
   const filename = encodeURIComponent(
     `${recipient?.name ?? "수급자"}_욕구조사기록지_${assessment.round_no}회차.hwp`

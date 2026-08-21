@@ -13,7 +13,7 @@ import {
   BorderStyle,
   ShadingType,
 } from "docx";
-import { ASSESSMENT_SECTIONS, type Field } from "./assessment-form";
+import { getSections, type Field } from "./assessment-form";
 import { recipientInfoPairs, type RecipientInfo } from "./assessment-recipient";
 import { formatBmi } from "./assessment-metrics";
 
@@ -135,6 +135,8 @@ export async function generateAssessmentDocx(params: {
   authorName: string;
   responses: Responses;
   finalSummary: string;
+  /** 기록에 저장된 서식 버전. 생략하면 현재 서식으로 봅니다. */
+  formVersion?: string | null;
 }): Promise<Buffer> {
   const { recipient, roundNo, assessedAt, authorName, responses, finalSummary } = params;
 
@@ -171,7 +173,7 @@ export async function generateAssessmentDocx(params: {
     }),
   ];
 
-  for (const section of ASSESSMENT_SECTIONS) {
+  for (const section of getSections(params.formVersion)) {
     children.push(sectionHeading(section.title, { tightBelow: Boolean(section.note) }));
     if (section.note) {
       children.push(

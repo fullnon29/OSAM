@@ -15,8 +15,9 @@ export async function POST(request: Request) {
   const responses = body.responses ?? {};
   const recipientName = String(body.recipientName ?? "어르신");
 
-  const draftSummary = generateDraftSummary(responses, recipientName);
-  const fullQA = formatFullQA(responses);
+  const formVersion = body.formVersion ?? null;
+  const draftSummary = generateDraftSummary(responses, recipientName, formVersion);
+  const fullQA = formatFullQA(responses, formVersion);
 
   let aiSummary = draftSummary;
   try {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSocialWorker } from "@/lib/require-social-worker";
+import { CURRENT_FORM_VERSION } from "@/lib/assessment-form";
 
 export async function POST(request: Request) {
   const result = await requireSocialWorker();
@@ -28,6 +29,8 @@ export async function POST(request: Request) {
       author_id: profile.id,
       assessed_at: body.assessed_at || new Date().toISOString().slice(0, 10),
       responses: body.responses ?? {},
+      // 지금 화면이 그린 서식으로 답한 것이므로 그 버전을 함께 남깁니다.
+      form_version: CURRENT_FORM_VERSION,
       draft_summary: body.draft_summary ?? null,
       ai_summary: body.ai_summary ?? null,
       final_summary: body.final_summary ?? null,

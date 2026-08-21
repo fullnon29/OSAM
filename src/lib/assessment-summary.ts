@@ -1,5 +1,5 @@
 import "server-only";
-import { ASSESSMENT_SECTIONS } from "./assessment-form";
+import { getSections } from "./assessment-form";
 
 export type AssessmentResponses = Record<string, string | string[] | number | undefined>;
 
@@ -30,11 +30,12 @@ function isMeaningful(value: string) {
 // 1단계: 응답값을 표준 문구로 조합한 규칙기반 초안 총평
 export function generateDraftSummary(
   responses: AssessmentResponses,
-  recipientName: string
+  recipientName: string,
+  formVersion?: string | null
 ): string {
   const paragraphs: string[] = [];
 
-  for (const section of ASSESSMENT_SECTIONS) {
+  for (const section of getSections(formVersion)) {
     const findings: string[] = [];
     let opinion = "";
 
@@ -74,9 +75,9 @@ export function generateDraftSummary(
 }
 
 // AI 보완 단계에 함께 전달할, 전체 문답을 사람이 읽기 좋은 텍스트로 정리
-export function formatFullQA(responses: AssessmentResponses): string {
+export function formatFullQA(responses: AssessmentResponses, formVersion?: string | null): string {
   const lines: string[] = [];
-  for (const section of ASSESSMENT_SECTIONS) {
+  for (const section of getSections(formVersion)) {
     const sectionLines: string[] = [];
     for (const field of section.fields) {
       const value = responses[field.code];
