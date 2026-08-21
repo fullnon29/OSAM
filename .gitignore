@@ -43,3 +43,6 @@ next-env.d.ts
 # 데스크톱 앱 빌드 산출물
 desktop/dist/
 desktop/release/
+
+# Capacitor 안드로이드 생성물 (npx cap add android 로 다시 만들 수 있음)
+/android/

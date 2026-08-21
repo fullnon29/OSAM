@@ -1,0 +1,12 @@
+{
+  "appId": "com.osamcare.app",
+  "appName": "오샘재가복지센터",
+  "webDir": "mobile/www",
+  "server": {
+    "url": "https://osamcare.com",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
