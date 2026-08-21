@@ -1,0 +1,22 @@
+appId: com.osamcare.documents
+productName: 오샘 서류 정리 도구
+# 번들된 코드와 화면 파일만 담습니다. 프로젝트 소스나 .env.local 은 넣지 않습니다.
+directories:
+  # 바탕화면은 동기화 대상이라 빌드 중 파일이 잠깁니다. 동기화 밖에 만듭니다.
+  output: C:/osam-build/release
+  buildResources: desktop
+files:
+  - from: desktop/dist
+    to: .
+    filter: ["**/*"]
+  - from: desktop
+    to: .
+    filter: ["package.json"]
+extraMetadata:
+  main: main.js
+win:
+  target:
+    - target: portable
+      arch: [x64]
+portable:
+  artifactName: 오샘서류정리도구-${version}.exe

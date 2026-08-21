@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 데스크톱 앱 빌드 산출물
+desktop/dist/
+desktop/release/

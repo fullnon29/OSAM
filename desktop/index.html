@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>오샘 서류 정리 도구</title>
+<style>
+  :root{
+    --paper:#FAF5EC; --paper-deep:#F1E9DA; --pine:#2E4A3A; --pine-deep:#1E3327;
+    --ochre:#C08A34; --ink:#26302A; --ink-soft:#5B6459; --line:#DCD0B8;
+    --white:#fff; --warn:#8A4B24; --warn-bg:#FBEAD9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Malgun Gothic','Pretendard',sans-serif;background:var(--paper);color:var(--ink);padding:28px;line-height:1.6}
+  h1{font-size:20px;color:var(--pine-deep);margin-bottom:4px}
+  .sub{font-size:13px;color:var(--ink-soft);margin-bottom:22px}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:14px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  button{font-family:inherit;font-size:14px;font-weight:600;padding:11px 20px;border-radius:100px;border:1px solid var(--line);background:var(--white);color:var(--ink);cursor:pointer}
+  button.primary{background:var(--pine-deep);color:var(--white);border-color:var(--pine-deep)}
+  button:disabled{opacity:.45;cursor:default}
+  .path{font-size:13px;color:var(--ink-soft);word-break:break-all;margin-top:10px}
+  .bar{height:8px;background:var(--paper-deep);border-radius:100px;overflow:hidden;margin:14px 0 8px}
+  .bar > div{height:100%;background:var(--pine);width:0;transition:width .2s}
+  .stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .stat{background:var(--paper-deep);border-radius:10px;padding:10px 14px;min-width:96px}
+  .stat b{display:block;font-size:19px;color:var(--pine-deep)}
+  .stat span{font-size:12px;color:var(--ink-soft)}
+  .now{font-size:12px;color:var(--ink-soft);margin-top:6px;height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .problems{margin-top:14px;background:var(--warn-bg);border-radius:10px;padding:12px 14px;max-height:170px;overflow:auto}
+  .problems h3{font-size:13px;color:var(--warn);margin-bottom:6px}
+  .problems div{font-size:12px;color:var(--warn);margin-bottom:3px}
+  .hint{font-size:12.5px;color:var(--ink-soft);margin-top:10px}
+</style>
+</head>
+<body>
+  <h1>오샘 서류 정리 도구</h1>
+  <p class="sub">내 컴퓨터의 수급자 서류를 읽어 시스템에 올립니다. 같은 파일은 다시 올리지 않으니 여러 번 실행해도 안전합니다.</p>
+
+  <div class="card">
+    <div class="row">
+      <button id="pick">폴더 선택</button>
+      <button id="start" class="primary" disabled>올리기 시작</button>
+      <button id="stop" disabled>중지</button>
+    </div>
+    <div class="path" id="path">선택된 폴더가 없습니다.</div>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div class="card" id="progressCard" style="display:none">
+    <div class="bar"><div id="fill"></div></div>
+    <div class="now" id="now"></div>
+    <div class="stats">
+      <div class="stat"><b id="s-done">0</b><span>처리</span></div>
+      <div class="stat"><b id="s-up">0</b><span>새로 올림</span></div>
+      <div class="stat"><b id="s-skip">0</b><span>이미 있음</span></div>
+      <div class="stat"><b id="s-match">0</b><span>수급자 연결</span></div>
+      <div class="stat"><b id="s-fail">0</b><span>실패</span></div>
+    </div>
+    <div class="problems" id="problems" style="display:none"><h3>처리하지 못한 파일</h3><div id="problemList"></div></div>
+  </div>
+
+<script>
+  let folder = null, running = false;
+  const $ = (id) => document.getElementById(id);
+
+  $("pick").onclick = async () => {
+    const dir = await window.osam.chooseFolder();
+    if (!dir) return;
+    folder = dir;
+    $("path").textContent = dir;
+    $("hint").textContent = "파일을 세는 중...";
+    const { count } = await window.osam.scanFolder(dir);
+    $("hint").textContent = `hwp·pdf 파일 ${count.toLocaleString()}건을 찾았습니다.`;
+    $("start").disabled = count === 0;
+  };
+
+  $("start").onclick = async () => {
+    if (!folder || running) return;
+    running = true;
+    $("start").disabled = true; $("pick").disabled = true; $("stop").disabled = false;
+    $("progressCard").style.display = "block";
+    $("problems").style.display = "none";
+    $("problemList").innerHTML = "";
+
+    try {
+      const result = await window.osam.importFolder(folder);
+      $("now").textContent = result.cancelled ? "중지했습니다." : "완료했습니다.";
+      if (result.problems && result.problems.length) {
+        $("problems").style.display = "block";
+        $("problemList").innerHTML = result.problems
+          .map((p) => `<div>${p.replace(/</g, "&lt;")}</div>`).join("");
+      }
+    } catch (e) {
+      $("now").textContent = "오류: " + (e && e.message ? e.message : e);
+    }
+
+    running = false;
+    $("start").disabled = false; $("pick").disabled = false; $("stop").disabled = true;
+  };
+
+  $("stop").onclick = () => window.osam.cancel();
+
+  window.osam.onProgress((p) => {
+    $("fill").style.width = (p.done / p.total * 100).toFixed(1) + "%";
+    $("now").textContent = `${p.done.toLocaleString()} / ${p.total.toLocaleString()} · ${p.filename}`;
+    $("s-done").textContent = p.done.toLocaleString();
+    $("s-up").textContent = p.uploaded.toLocaleString();
+    $("s-skip").textContent = p.skipped.toLocaleString();
+    $("s-match").textContent = p.matched.toLocaleString();
+    $("s-fail").textContent = p.failed.toLocaleString();
+  });
+</script>
+</body>
+</html>
