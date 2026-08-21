@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AssessmentFormFields, { type Responses } from "./AssessmentFormFields";
+import { checkCompliance, summarizeCompliance } from "@/lib/assessment-compliance";
 
 export type ExistingAssessment = {
   id: string;
@@ -47,6 +48,14 @@ export default function AssessmentEditor({
   function onChange(code: string, value: Responses[string]) {
     setResponses((prev) => ({ ...prev, [code]: value }));
   }
+
+  // 공단 평가 지표 충족 여부. 체크만 채운 기록은 인정되지 않으므로
+  // 완료 처리 전에 빠진 판단근거를 짚어 줍니다.
+  const complianceIssues = useMemo(
+    () => checkCompliance({ responses, finalSummary, assessedAt }),
+    [responses, finalSummary, assessedAt]
+  );
+  const compliance = summarizeCompliance(complianceIssues);
 
   async function generateSummary() {
     setGenerating(true);
@@ -185,7 +194,41 @@ export default function AssessmentEditor({
           />
         </div>
 
-        <div className="modal-actions" style={{ marginTop: 20 }}>
+        <div className="compliance-box" style={{ marginTop: 20 }}>
+          <h4>
+            공단 평가기준 점검
+            {compliance.passed ? (
+              <span className="compliance-ok">충족</span>
+            ) : (
+              <span className="compliance-bad">
+                미충족 {compliance.blocking}건
+                {compliance.warnings > 0 ? ` · 확인 ${compliance.warnings}건` : ""}
+              </span>
+            )}
+          </h4>
+          {compliance.passed ? (
+            <p className="compliance-note">
+              세부내용 8개 항목의 판단근거와 총평이 모두 작성되었습니다.
+            </p>
+          ) : (
+            <>
+              <p className="compliance-note">
+                평가매뉴얼상 <strong>체크만 하고 판단근거가 없으면 인정되지 않습니다.</strong>{" "}
+                아래 항목을 채운 뒤 완료 처리하세요.
+              </p>
+              <ul className="compliance-list">
+                {complianceIssues.map((issue, i) => (
+                  <li key={i} className={issue.severity}>
+                    <span className="compliance-item">{issue.item}</span>
+                    {issue.message}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+
+        <div className="modal-actions" style={{ marginTop: 16 }}>
           <button
             className="btn outline small"
             type="button"

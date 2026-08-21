@@ -304,3 +304,15 @@ table.admin-table tbody tr:hover{background:var(--paper);}
 .summary-box{background:var(--white); border:1px solid var(--ochre-soft); border-radius:12px; padding:18px 20px; margin-bottom:14px;}
 .summary-box h4{font-size:13px; color:var(--ochre); margin-bottom:8px;}
 .summary-box p{font-size:13.5px; color:var(--ink); line-height:1.8; white-space:pre-wrap;}
+
+/* 공단 평가기준 점검 */
+.compliance-box{background:var(--white); border:1px solid var(--line); border-radius:12px; padding:16px 18px;}
+.compliance-box h4{display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--pine-deep); margin-bottom:8px;}
+.compliance-ok{font-size:12px; font-weight:700; color:var(--pine-deep); background:#E4EDE5; padding:3px 10px; border-radius:100px;}
+.compliance-bad{font-size:12px; font-weight:700; color:#8A4B24; background:#FBEAD9; padding:3px 10px; border-radius:100px;}
+.compliance-note{font-size:12.5px; color:var(--ink-soft); line-height:1.7; margin-bottom:8px;}
+.compliance-list{list-style:none; display:flex; flex-direction:column; gap:6px;}
+.compliance-list li{font-size:12.5px; line-height:1.6; color:var(--ink); padding-left:2px;}
+.compliance-list li.blocking{color:#8A4B24;}
+.compliance-list li.warning{color:var(--ink-soft);}
+.compliance-item{display:inline-block; min-width:22px; margin-right:6px; font-weight:700;}

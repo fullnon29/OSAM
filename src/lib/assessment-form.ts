@@ -184,7 +184,14 @@ export const ASSESSMENT_SECTIONS: Section[] = [
         options: ["해당없음", "당뇨식", "저염식", "기타"],
       },
       { code: "s2c_therapeutic_diet_etc", label: "치료식 기타", type: "text" },
-      { code: "s2c_meal_notes", label: "식사제공 유의사항", type: "textarea" },
+      {
+        code: "s2c_meal_notes",
+        label: "식사제공 유의사항",
+        type: "textarea",
+        // 공단 평가 세부내용 5번의 '기피식품 파악'을 이 칸에서 확인합니다(2026.1월~).
+        placeholder:
+          "기피식품(종교·알러지·소화·기호 등으로 못 드시는 식품), 식사형태와 패턴, 연하곤란 등을 구체적으로 작성",
+      },
       { code: "s2c_nutrition", label: "영양상태", type: "select", options: ["양호", "불량"] },
       {
         code: "s2c_nutrition_detail",

@@ -6,6 +6,7 @@ import fontkit from "@pdf-lib/fontkit";
 import { ASSESSMENT_SECTIONS, type Field } from "./assessment-form";
 import { measureText, drawTextRun as drawTextRunOnPage } from "./pdf-text";
 import { recipientInfoPairs, type RecipientInfo } from "./assessment-recipient";
+import { formatBmi } from "./assessment-metrics";
 
 type Responses = Record<string, string | string[] | number | undefined>;
 
@@ -316,6 +317,14 @@ export async function generateAssessmentPdf(params: {
       }
       const suffixLabel = field.suffix ? `${field.label} (${field.suffix})` : field.label;
       drawTableRow(suffixLabel, fieldValueContent(field, responses));
+      // 원본 서식은 키/체중 옆에 BMI 칸이 있습니다. 입력값이 아니라 계산값이므로
+      // 체중 바로 뒤에 자동으로 채워 넣습니다.
+      if (field.code === "s2_weight") {
+        drawTableRow("BMI", {
+          kind: "text",
+          text: formatBmi(responses["s2_height"], responses["s2_weight"]),
+        });
+      }
     }
     // 다음 절 제목의 SECTION_GAP_BEFORE가 표 사이 여백 역할을 하므로 여기서는 더하지 않습니다.
   }

@@ -15,6 +15,7 @@ import {
 } from "docx";
 import { ASSESSMENT_SECTIONS, type Field } from "./assessment-form";
 import { recipientInfoPairs, type RecipientInfo } from "./assessment-recipient";
+import { formatBmi } from "./assessment-metrics";
 
 type Responses = Record<string, string | string[] | number | undefined>;
 
@@ -196,6 +197,11 @@ export async function generateAssessmentDocx(params: {
       }
       const label = field.suffix ? `${field.label} (${field.suffix})` : field.label;
       rows.push(fieldRow(label, fieldValueText(field, responses)));
+      // 원본 서식은 키/체중 옆에 BMI 칸이 있습니다. 입력값이 아니라 계산값이므로
+      // 체중 바로 뒤에 자동으로 채워 넣습니다.
+      if (field.code === "s2_weight") {
+        rows.push(fieldRow("BMI", formatBmi(responses["s2_height"], responses["s2_weight"])));
+      }
     }
 
     children.push(
