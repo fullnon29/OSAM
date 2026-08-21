@@ -23,6 +23,7 @@ export default function AssessmentEditor({
   existing,
   initialResponses,
   previousRoundNo,
+  priorDocument,
 }: {
   recipientId: string;
   recipientName: string;
@@ -30,6 +31,8 @@ export default function AssessmentEditor({
   /** when starting a new round, pre-fill from the previous round's answers */
   initialResponses?: Responses;
   previousRoundNo?: number;
+  /** 이 시스템의 기록이 없어 과거 보관 서류에서 불러온 경우의 출처 */
+  priorDocument?: { filename: string; date: string | null };
 }) {
   const router = useRouter();
   const [responses, setResponses] = useState<Responses>(
@@ -134,10 +137,24 @@ export default function AssessmentEditor({
         </div>
       </div>
 
-      {!existing && initialResponses && (
+      {!existing && initialResponses && previousRoundNo !== undefined && (
         <div className="detail-card assess-section" style={{ background: "var(--paper-deep)" }}>
           <strong>{previousRoundNo}회차 응답을 불러왔습니다.</strong> 변경된 부분만 수정한 뒤,
           &quot;총평 생성&quot;을 눌러 이번 회차 상태에 맞는 총평을 새로 만드세요.
+        </div>
+      )}
+
+      {!existing && priorDocument && (
+        <div className="detail-card assess-section prior-doc-note">
+          <strong>과거 서류에서 불러온 내용입니다.</strong>{" "}
+          <span className="prior-doc-source">
+            {priorDocument.filename}
+            {priorDocument.date ? ` · ${priorDocument.date}` : ""}
+          </span>
+          <p>
+            원본을 자동으로 읽어 채운 <strong>추정값</strong>이라 빠지거나 틀린 항목이 있을 수
+            있습니다. 어르신의 현재 상태와 대조해 확인·수정한 뒤 저장해 주세요.
+          </p>
         </div>
       )}
 

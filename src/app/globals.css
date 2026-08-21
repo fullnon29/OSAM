@@ -355,3 +355,8 @@ table.admin-table tbody tr:hover{background:var(--paper);}
   .list-count{margin-left:0;}
   .list-search{max-width:none;}
 }
+
+/* 과거 서류에서 불러온 경우의 안내 */
+.prior-doc-note{background:#FBEAD9; border-color:#E4C79A;}
+.prior-doc-note .prior-doc-source{font-size:12.5px; color:var(--ink-soft);}
+.prior-doc-note p{margin-top:8px; font-size:13px; color:var(--ink); line-height:1.7;}
