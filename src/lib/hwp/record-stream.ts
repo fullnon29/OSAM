@@ -1,4 +1,6 @@
-import "server-only";
+// 웹(서버)과 로컬 프로그램이 함께 쓰는 공용 모듈입니다(요구사항 11: 로컬+웹).
+// next 의 server-only 가드를 두면 로컬 스크립트에서 불러올 수 없어 사용하지 않습니다.
+// node 내장 모듈에 의존하므로 클라이언트 번들에는 어차피 포함될 수 없습니다.
 
 // HWP v5 (binary, OLE compound file) BodyText section record stream utilities.
 // Record header: 32-bit LE. bits0-9=tagId, bits10-19=level, bits20-31=size
