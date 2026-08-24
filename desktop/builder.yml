@@ -14,6 +14,8 @@ files:
     filter: ["package.json"]
 extraMetadata:
   main: main.js
+  # 새 기능(공단 포털 받기)이 들어간 판을 구별하기 위해 올립니다.
+  version: 0.2.0
 win:
   target:
     - target: portable
