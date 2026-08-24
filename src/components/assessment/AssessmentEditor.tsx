@@ -54,6 +54,10 @@ export default function AssessmentEditor({
   const [aiSummary, setAiSummary] = useState(existing?.ai_summary ?? "");
   const [finalSummary, setFinalSummary] = useState(existing?.final_summary ?? "");
   const [generating, setGenerating] = useState(false);
+  // 총평을 만들 때 이 어르신의 지난 기록을 몇 건 참고했는지 알려 줍니다.
+  const [referencedPast, setReferencedPast] = useState(0);
+  // 지금 판단근거를 작성 중인 항목
+  const [assistingSection, setAssistingSection] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineNote, setOfflineNote] = useState<string | null>(null);
@@ -81,7 +85,8 @@ export default function AssessmentEditor({
     const res = await fetch("/api/assessment/summary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ responses, recipientName }),
+      // 이 어르신의 지난 서술을 함께 참고하도록 id 를 넘깁니다.
+      body: JSON.stringify({ responses, recipientName, recipientId }),
     });
     const json = await res.json();
     setGenerating(false);
@@ -92,6 +97,33 @@ export default function AssessmentEditor({
     setDraftSummary(json.draftSummary);
     setAiSummary(json.aiSummary);
     setFinalSummary(json.aiSummary);
+    setReferencedPast(json.referencedPastRecords ?? 0);
+  }
+
+  /** 한 항목의 판단근거를 오샘 서술형식으로 채웁니다. */
+  async function assistOpinion(sectionCode: string) {
+    setAssistingSection(sectionCode);
+    setError(null);
+    try {
+      const res = await fetch("/api/assessment/opinion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ responses, recipientName, recipientId, sectionCode }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "판단근거를 만들지 못했습니다.");
+        return;
+      }
+      // 이미 쓰신 내용이 있으면 지우지 않고 아래에 이어 붙입니다.
+      const code = `${sectionCode}_opinion`;
+      const previous = typeof responses[code] === "string" ? (responses[code] as string).trim() : "";
+      onChange(code, previous ? `${previous}\n${json.opinion}` : json.opinion);
+    } catch {
+      setError("연결이 없어 판단근거를 만들지 못했습니다.");
+    } finally {
+      setAssistingSection(null);
+    }
   }
 
   // 기기에 남아 있던 작성 중 내용을 되살립니다.
@@ -266,7 +298,12 @@ export default function AssessmentEditor({
         </div>
       )}
 
-      <AssessmentFormFields responses={responses} onChange={onChange} />
+      <AssessmentFormFields
+        responses={responses}
+        onChange={onChange}
+        onAssist={assistOpinion}
+        assistingSection={assistingSection}
+      />
 
       <div className="detail-card assess-section">
         <h2 style={{ fontSize: 18, color: "var(--pine-deep)", marginBottom: 14 }}>
@@ -279,12 +316,18 @@ export default function AssessmentEditor({
           disabled={generating}
           style={{ width: "auto", padding: "12px 22px", marginBottom: 18 }}
         >
-          {generating ? "생성 중..." : "🪄 총평 생성 (규칙기반 + AI 보완)"}
+          {generating ? "생성 중..." : "🪄 총평 생성 (오샘 서술형식)"}
         </button>
+
+        {referencedPast > 0 && (
+          <div className="offline-note subtle">
+            이 어르신의 지난 기록 {referencedPast}건을 함께 참고했습니다.
+          </div>
+        )}
 
         {draftSummary && (
           <div className="summary-box">
-            <h4>규칙기반 초안</h4>
+            <h4>규칙기반 초안 (오샘 서술형식)</h4>
             <p>{draftSummary}</p>
           </div>
         )}

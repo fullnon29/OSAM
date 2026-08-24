@@ -94,9 +94,18 @@ function FieldInput({
 export default function AssessmentFormFields({
   responses,
   onChange,
+  onAssist,
+  assistingSection,
 }: {
   responses: Responses;
   onChange: (code: string, value: ResponseValue) => void;
+  /**
+   * 판단근거를 대신 써 주는 기능. 연결이 필요하므로 쓸 수 있는 화면에서만 넘깁니다.
+   * 넘기지 않으면 버튼이 보이지 않습니다(오프라인 화면).
+   */
+  onAssist?: (sectionCode: string) => void;
+  /** 지금 작성 중인 항목 코드 */
+  assistingSection?: string | null;
 }) {
   return (
     <>
@@ -120,6 +129,19 @@ export default function AssessmentFormFields({
                     value={responses[field.code]}
                     onChange={(v) => onChange(field.code, v)}
                   />
+                  {onAssist && field.code.endsWith("_opinion") && (
+                    <button
+                      className="btn outline small assist-btn"
+                      type="button"
+                      onClick={() => onAssist(section.code)}
+                      disabled={assistingSection === section.code}
+                      title="이 항목의 체크 내용과 지난 기록을 바탕으로 오샘 서술형식의 판단근거를 만들어 줍니다."
+                    >
+                      {assistingSection === section.code
+                        ? "작성 중…"
+                        : "🪄 판단근거 작성 (오샘 서술형식)"}
+                    </button>
+                  )}
                 </div>
               </div>
             );

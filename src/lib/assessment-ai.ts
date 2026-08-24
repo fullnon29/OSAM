@@ -1,47 +1,126 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
+import { HOUSE_STYLE_GUIDE } from "./narrative-style";
 
-// 2단계: 규칙기반 초안 + 전체 문답을 Claude에 보내 자연스러운 최종 총평으로 보완
-export async function refineSummaryWithAI(params: {
-  recipientName: string;
-  draftSummary: string;
-  fullQA: string;
+// 규칙기반 초안을 우리 센터 글투로 다듬습니다.
+//
+// 글투 지침과 예문은 어느 어르신이든 똑같이 앞에 붙습니다. 그래야
+// 모든 기록이 같은 형식으로 나오고, 앞부분이 매번 같아 요청 비용도 아낍니다.
+// 그 어르신 본인의 지난 서술은 뒤에 붙여, 과거와 어긋나지 않게 합니다.
+
+const MODEL = "claude-sonnet-4-5";
+
+function buildSystemPrompt(houseSamples: string): string {
+  const base =
+    "당신은 재가 장기요양기관 '오샘재가복지센터'의 사회복지사를 돕는 보조 도구입니다.\n" +
+    "주어진 근거만으로 욕구사정 서술을 작성합니다. 문답에 없는 사실을 추측하거나 지어내지 마십시오.\n" +
+    "진단을 내리거나 과장하지 말고, 관찰된 사실과 필요한 지원을 중심으로 적으십시오.\n\n" +
+    HOUSE_STYLE_GUIDE;
+  return houseSamples ? `${base}\n\n${houseSamples}` : base;
+}
+
+/** Anthropic 호출부. 글투 지침은 캐시해 두고 재사용합니다. */
+async function ask(params: {
+  system: string;
+  user: string;
+  maxTokens: number;
 }): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    // 키가 없으면 규칙기반 초안을 그대로 반환 (AI 보완은 건너뜀)
-    return params.draftSummary;
-  }
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY 가 없습니다.");
 
   const client = new Anthropic({ apiKey });
-
   const message = await client.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 1200,
-    system:
-      "당신은 재가 장기요양기관의 사회복지사를 돕는 보조 도구입니다. " +
-      "주어진 '규칙기반 초안'과 '전체 문답 내용'만을 근거로, 자연스럽고 전문적인 한국어 종합의견(총평) 문단을 작성하세요. " +
-      "문답에 없는 사실을 추측하거나 새로 지어내지 마세요. 존재하지 않는 정보는 언급하지 마세요. " +
-      "어색한 나열식 문장을 자연스러운 서술형 문단으로 다듬되, 원래 있던 사실 관계는 바꾸지 마세요. " +
-      "과장하거나 진단을 내리지 말고, 관찰된 사실과 필요 지원 중심으로 서술하세요. " +
-      "결과는 총평 본문 텍스트만 출력하고, 제목이나 부가 설명은 붙이지 마세요.",
-    messages: [
+    model: MODEL,
+    max_tokens: params.maxTokens,
+    system: [
       {
-        role: "user",
-        content:
-          `수급자 성명: ${params.recipientName}\n\n` +
-          `[규칙기반 초안]\n${params.draftSummary}\n\n` +
-          `[전체 문답 내용]\n${params.fullQA}\n\n` +
-          "위 내용을 바탕으로 다듬어진 최종 종합의견(총평)을 작성해 주세요.",
+        type: "text",
+        text: params.system,
+        // 어느 어르신이든 앞부분이 같으므로 캐시가 걸립니다.
+        cache_control: { type: "ephemeral" },
       },
     ],
+    messages: [{ role: "user", content: params.user }],
   });
 
-  const text = message.content
+  return message.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
     .map((block) => block.text)
     .join("\n")
     .trim();
+}
 
-  return text || params.draftSummary;
+/**
+ * 총평을 우리 글투로 다듬습니다.
+ *
+ * 실패하면 규칙기반 초안을 그대로 돌려줍니다. 초안도 이미 우리 글투라
+ * AI를 못 쓰는 상황에서도 형식은 지켜집니다.
+ */
+export async function refineSummaryWithAI(params: {
+  recipientName: string;
+  draftSummary: string;
+  fullQA: string;
+  /** 센터 글투 예문 (모든 어르신 공통) */
+  houseSamples?: string;
+  /** 이 어르신의 지난 서술 */
+  recipientHistory?: string;
+}): Promise<string> {
+  try {
+    const user = [
+      `수급자 성명: ${params.recipientName}`,
+      "",
+      "[규칙기반 초안]",
+      params.draftSummary,
+      "",
+      "[이번 회차 전체 문답]",
+      params.fullQA,
+      params.recipientHistory ? `\n[이 어르신의 지난 기록]\n${params.recipientHistory}` : "",
+      "",
+      "위 근거만으로 종합의견(총평)을 작성하십시오.",
+      "결과는 총평 본문만 출력하고 제목이나 설명은 붙이지 마십시오.",
+    ].join("\n");
+
+    const text = await ask({
+      system: buildSystemPrompt(params.houseSamples ?? ""),
+      user,
+      maxTokens: 1500,
+    });
+    return text || params.draftSummary;
+  } catch (err) {
+    console.error("AI 총평 보완 실패", err);
+    return params.draftSummary;
+  }
+}
+
+/**
+ * 항목별 '의견 및 판단근거'를 우리 글투로 써 줍니다.
+ *
+ * 공단 평가에서 체크만 한 기록은 인정받지 못하므로, 항목마다 판단근거가
+ * 필요합니다. 총평과 같은 글투를 쓰되 그 항목 이야기만 적습니다.
+ */
+export async function draftOpinionWithAI(params: {
+  recipientName: string;
+  sectionTitle: string;
+  sectionQA: string;
+  houseSamples?: string;
+  recipientHistory?: string;
+}): Promise<string> {
+  const user = [
+    `수급자 성명: ${params.recipientName}`,
+    `작성할 항목: ${params.sectionTitle}`,
+    "",
+    "[이 항목의 문답]",
+    params.sectionQA,
+    params.recipientHistory ? `\n[이 어르신의 지난 기록]\n${params.recipientHistory}` : "",
+    "",
+    `'${params.sectionTitle}' 항목의 '의견 및 판단근거'를 2~4문장으로 작성하십시오.`,
+    "무엇을 보고 판단했는지 먼저 밝히고, 관찰된 상태와 필요한 지원을 적으십시오.",
+    "이 항목과 관계없는 내용은 적지 마십시오. 본문만 출력하십시오.",
+  ].join("\n");
+
+  return ask({
+    system: buildSystemPrompt(params.houseSamples ?? ""),
+    user,
+    maxTokens: 600,
+  });
 }
