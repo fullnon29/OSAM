@@ -41,6 +41,9 @@
     <div class="row">
       <button id="dlPick">저장 폴더 선택</button>
       <button id="portal" class="primary" disabled>포털 열기</button>
+      <button id="autoOne" class="primary">1건만 시험</button>
+      <button id="autoAll">전체 받기</button>
+      <button id="autoStop" disabled>중지</button>
       <button id="portalDump">화면 구조 저장</button>
       <button id="recToggle">동작 기록 시작</button>
       <button id="portalClear">로그인 흔적 지우기</button>
@@ -52,6 +55,7 @@
       구글 드라이브 동기화 폴더를 고르시면 받는 즉시 드라이브에도 올라갑니다.
     </div>
     <div class="hint" id="dlLog"></div>
+    <div class="problems" id="autoLog" style="display:none;max-height:260px;overflow:auto"></div>
   </div>
 
   <div class="card">
@@ -104,6 +108,35 @@
         ? "화면 구조를 저장했습니다 (" + r.frames + "개 화면): " + r.saved
         : "저장할 것이 없습니다. 포털 창이 열려 있는지 확인해 주십시오.";
     };
+
+    // ── 자동 받기 ─────────────────────────────────────────
+    const autoLogBox = document.getElementById("autoLog");
+    const addAutoLog = (log) => {
+      autoLogBox.style.display = "block";
+      const line = document.createElement("div");
+      line.textContent = log.text;
+      if (log.kind === "ok") line.style.color = "var(--pine-deep)";
+      if (log.kind === "info") line.style.color = "var(--ink-soft)";
+      autoLogBox.appendChild(line);
+      autoLogBox.scrollTop = autoLogBox.scrollHeight;
+    };
+    window.osam.onAutoLog(addAutoLog);
+
+    const runAuto = async (onlyOne) => {
+      autoLogBox.innerHTML = "";
+      document.getElementById("autoOne").disabled = true;
+      document.getElementById("autoAll").disabled = true;
+      document.getElementById("autoStop").disabled = false;
+      const r = await window.osam.autoFetch({ onlyOne, reason: "내부 업무처리" });
+      addAutoLog({ kind: "info", text: `끝났습니다 — 받음 ${r.saved} · 건너뜀 ${r.skipped} · 실패 ${r.failed}` });
+      document.getElementById("autoOne").disabled = false;
+      document.getElementById("autoAll").disabled = false;
+      document.getElementById("autoStop").disabled = true;
+    };
+
+    document.getElementById("autoOne").onclick = () => runAuto(true);
+    document.getElementById("autoAll").onclick = () => runAuto(false);
+    document.getElementById("autoStop").onclick = () => window.osam.autoStop();
 
     let recording = false;
     document.getElementById("recToggle").onclick = async () => {

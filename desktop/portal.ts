@@ -13,6 +13,17 @@
 // 되도록 한 것이며, 저장되는 것은 브라우저 쿠키뿐입니다.
 
 import { BrowserWindow, session } from "electron";
+import {
+  STEP_CLICK_PRINT,
+  STEP_CLOSE,
+  STEP_EXPORT_PDF,
+  STEP_LIST_LOGS,
+  STEP_PROBE,
+  stepConfirmWarning,
+  stepOpenLog,
+  stepSelectRecipient,
+} from "./portal-steps";
+
 import { mkdirSync, existsSync } from "node:fs";
 import path from "node:path";
 
@@ -106,8 +117,10 @@ export function openPortal(saveDir: string, onEvent: (e: DownloadEvent) => void)
     item.once("done", (_e, state) => {
       if (state === "completed") {
         onEvent({ kind: "saved", file: target, bytes: item.getReceivedBytes() });
+        notifyDownload(target);
       } else {
         onEvent({ kind: "failed", file: name, reason: state });
+        notifyDownload(null);
       }
     });
   });
@@ -395,4 +408,153 @@ export function markDownloadInRecording(url: string): void {
   } catch {
     /* 무시 */
   }
+}
+
+/* ── 자동 받기 ─────────────────────────────────────────────────
+   걸음마다 결과를 확인하며 진행합니다. 어디서 멈췄는지 알 수 있어야
+   고칠 수 있기 때문입니다. 한 건이라도 어긋나면 그 어르신은 건너뛰고
+   다음으로 넘어가되, 무엇이 안 됐는지 남깁니다. */
+
+
+export type AutoLog = { kind: "info" | "ok" | "warn" | "error"; text: string };
+export type AutoResult = { saved: number; skipped: number; failed: number; stopped: boolean };
+
+let stopRequested = false;
+export function requestStop(): void {
+  stopRequested = true;
+}
+
+/** 내려받기가 끝날 때까지 기다리기 위한 약속. */
+let pendingDownload: { resolve: (file: string | null) => void; timer: NodeJS.Timeout } | null = null;
+
+function waitForDownload(ms: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingDownload = null;
+      resolve(null);
+    }, ms);
+    pendingDownload = { resolve, timer };
+  });
+}
+
+/** will-download 에서 부릅니다. */
+function notifyDownload(file: string | null): void {
+  if (!pendingDownload) return;
+  clearTimeout(pendingDownload.timer);
+  const { resolve } = pendingDownload;
+  pendingDownload = null;
+  resolve(file);
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+type StepResult = { ok?: boolean; reason?: string; done?: boolean; [k: string]: unknown };
+
+async function run(script: string): Promise<StepResult> {
+  if (!portalWindow || portalWindow.isDestroyed()) return { ok: false, reason: "포털 창이 닫혔습니다." };
+  try {
+    const json = (await portalWindow.webContents.executeJavaScript(script, true)) as string;
+    return JSON.parse(json) as StepResult;
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * 일지를 받아 옵니다.
+ *
+ * @param onlyOne 한 건만 받아 보고 멈춥니다. 처음 쓰실 때 확인용입니다.
+ * @param reason  개인정보 열람 사유. 공단에 그대로 기록됩니다.
+ */
+export async function runAutomation(
+  onlyOne: boolean,
+  reason: string,
+  onLog: (log: AutoLog) => void
+): Promise<AutoResult> {
+  stopRequested = false;
+  const result: AutoResult = { saved: 0, skipped: 0, failed: 0, stopped: false };
+
+  const probe = await run(STEP_PROBE);
+  if (!probe.ok) {
+    onLog({ kind: "error", text: String(probe.reason) });
+    return result;
+  }
+  const total = Number(probe.recipients ?? 0);
+  onLog({ kind: "info", text: `어르신 ${total}명이 목록에 있습니다.` });
+
+  for (let i = 0; i < total; i++) {
+    if (stopRequested) {
+      result.stopped = true;
+      onLog({ kind: "warn", text: "중지했습니다." });
+      break;
+    }
+
+    const pick = await run(stepSelectRecipient(i));
+    if (pick.done) break;
+    if (!pick.ok) {
+      result.failed++;
+      onLog({ kind: "error", text: `${i + 1}번째 어르신을 고르지 못했습니다: ${pick.reason}` });
+      continue;
+    }
+    await wait(700);
+
+    const logs = await run(STEP_LIST_LOGS);
+    const rows = (logs.rows as { i: number; wrtDt: string; status: string }[]) ?? [];
+    if (!logs.ok || !rows.length) {
+      result.skipped++;
+      onLog({ kind: "info", text: `${i + 1}/${total} · 일지가 없어 건너뜁니다.` });
+      continue;
+    }
+
+    for (const row of rows) {
+      if (stopRequested) break;
+
+      const open = await run(stepOpenLog(row.i));
+      if (!open.ok) {
+        result.failed++;
+        onLog({ kind: "error", text: `${i + 1}/${total} · 일지를 열지 못했습니다: ${open.reason}` });
+        continue;
+      }
+      await wait(1500);
+
+      const print = await run(STEP_CLICK_PRINT);
+      if (!print.ok) {
+        result.failed++;
+        onLog({ kind: "error", text: `${i + 1}/${total} · 양식 인쇄를 누르지 못했습니다: ${print.reason}` });
+        await run(STEP_CLOSE);
+        continue;
+      }
+      await wait(900);
+
+      await run(stepConfirmWarning(reason));
+      await wait(2500);
+
+      const exported = await run(STEP_EXPORT_PDF);
+      if (!exported.ok) {
+        result.failed++;
+        onLog({ kind: "error", text: `${i + 1}/${total} · PDF 를 내려받지 못했습니다: ${exported.reason}` });
+        await run(STEP_CLOSE);
+        continue;
+      }
+
+      const file = await waitForDownload(30000);
+      if (file) {
+        result.saved++;
+        onLog({ kind: "ok", text: `${i + 1}/${total} · ${row.wrtDt} 받음` });
+      } else {
+        result.failed++;
+        onLog({ kind: "warn", text: `${i + 1}/${total} · ${row.wrtDt} 내려받기를 기다렸지만 오지 않았습니다.` });
+      }
+
+      await run(STEP_CLOSE);
+      await wait(800);
+
+      if (onlyOne) {
+        onLog({ kind: "info", text: "한 건만 시험했습니다. 결과를 확인해 주십시오." });
+        return result;
+      }
+    }
+  }
+
+  return result;
 }

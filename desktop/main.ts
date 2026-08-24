@@ -15,6 +15,8 @@ import {
   isPortalOpen,
   isRecording,
   openPortal,
+  requestStop,
+  runAutomation,
   startRecording,
   stopRecording,
 } from "./portal";
@@ -219,3 +221,18 @@ ipcMain.handle("record-stop", (_e, saveDir: string) => {
 });
 
 ipcMain.handle("record-state", () => isRecording());
+
+/**
+ * 일지를 자동으로 받아 옵니다.
+ *
+ * 로그인은 이미 사람이 해 두신 상태여야 합니다. 열람 사유는 공단에 그대로
+ * 기록되므로 화면에서 고른 값을 그대로 넘깁니다.
+ */
+ipcMain.handle("auto-fetch", async (event, opts: { onlyOne: boolean; reason: string }) => {
+  return runAutomation(opts.onlyOne, opts.reason, (log) => event.sender.send("auto-log", log));
+});
+
+ipcMain.handle("auto-stop", () => {
+  requestStop();
+  return { stopping: true };
+});
