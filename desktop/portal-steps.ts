@@ -55,6 +55,22 @@ const HELPERS = `
     return null;
   };
 
+  // 자료 묶음이 실제로 놓인 화면을 찾습니다.
+  //
+  // 경로를 미리 적어 두면 화면이 조금만 바뀌어도 어긋납니다. 실제로
+  // 그 자료를 가진 화면을 찾아가는 편이 훨씬 안전합니다.
+  const formWithDataset = (dsName) => {
+    for (const path of findForms()) {
+      const f = resolve(path);
+      if (!f) continue;
+      try {
+        const ds = f[dsName];
+        if (ds && ds._type_name === "Dataset") return { path, form: f, ds };
+      } catch (e) {}
+    }
+    return null;
+  };
+
   // 적힌 글자로 단추를 찾습니다. 숨겨진 것은 셈에서 뺍니다.
   const buttonsByText = (text) => {
     const hits = [];
@@ -93,18 +109,24 @@ const HELPERS = `
 /** 지금 열린 화면이 무엇이고 어르신·일지가 몇 건인지 봅니다. */
 export const STEP_PROBE = `(() => { try {
   ${HELPERS}
-  const found = formByScreenId("npsb210m01");
-  if (!found) return JSON.stringify({ ok: false, reason: "업무수행일지 목록 화면(npsb210m01)이 열려 있지 않습니다." });
-  const f = found.form._div_bizFrameMain ? found.form : found.form;
-  const inner = found.form._div_bizFrameMain ? found.form._div_bizFrameMain.form : found.form;
-  const tgt = inner.ds_SswBusiEntOutTgt;
-  const logs = inner.ds_tbnpsb40;
+  const screen = formByScreenId("npsb210m01");
+  const tgtHolder = formWithDataset("ds_SswBusiEntOutTgt");
+  if (!tgtHolder) {
+    return JSON.stringify({
+      ok: false,
+      reason: "어르신 목록 자료(ds_SswBusiEntOutTgt)를 어느 화면에서도 찾지 못했습니다. "
+        + "업무수행일지 목록 화면이 열려 있고 조회가 된 상태인지 확인해 주십시오.",
+      screenFound: !!screen,
+      formsOpen: findForms().length,
+    });
+  }
+  const logHolder = formWithDataset("ds_tbnpsb40");
   return JSON.stringify({
     ok: true,
-    formPath: found.path,
-    recipients: tgt ? tgt.getRowCount() : -1,
-    recipientRow: tgt ? tgt.rowposition : -1,
-    logs: logs ? logs.getRowCount() : -1,
+    formPath: tgtHolder.path,
+    recipients: tgtHolder.ds.getRowCount(),
+    recipientRow: tgtHolder.ds.rowposition,
+    logs: logHolder ? logHolder.ds.getRowCount() : -1,
   });
 } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 
@@ -112,11 +134,9 @@ export const STEP_PROBE = `(() => { try {
 export function stepSelectRecipient(index: number): string {
   return `(() => { try {
     ${HELPERS}
-    const found = formByScreenId("npsb210m01");
-    if (!found) return JSON.stringify({ ok: false, reason: "목록 화면이 없습니다." });
-    const inner = found.form._div_bizFrameMain ? found.form._div_bizFrameMain.form : found.form;
-    const tgt = inner.ds_SswBusiEntOutTgt;
-    if (!tgt) return JSON.stringify({ ok: false, reason: "어르신 목록 자료를 찾지 못했습니다." });
+    const holder = formWithDataset("ds_SswBusiEntOutTgt");
+    if (!holder) return JSON.stringify({ ok: false, reason: "어르신 목록 자료를 찾지 못했습니다." });
+    const tgt = holder.ds;
     if (${index} >= tgt.getRowCount()) return JSON.stringify({ ok: false, done: true });
     tgt.set_rowposition(${index});
     return JSON.stringify({
@@ -132,11 +152,9 @@ export function stepSelectRecipient(index: number): string {
 /** 지금 고른 어르신의 일지 목록을 봅니다. */
 export const STEP_LIST_LOGS = `(() => { try {
   ${HELPERS}
-  const found = formByScreenId("npsb210m01");
-  if (!found) return JSON.stringify({ ok: false, reason: "목록 화면이 없습니다." });
-  const inner = found.form._div_bizFrameMain ? found.form._div_bizFrameMain.form : found.form;
-  const ds = inner.ds_tbnpsb40;
-  if (!ds) return JSON.stringify({ ok: false, reason: "일지 목록 자료를 찾지 못했습니다." });
+  const holder = formWithDataset("ds_tbnpsb40");
+  if (!holder) return JSON.stringify({ ok: false, reason: "일지 목록 자료를 찾지 못했습니다." });
+  const ds = holder.ds;
   const rows = [];
   for (let i = 0; i < ds.getRowCount(); i++) {
     rows.push({
@@ -153,18 +171,16 @@ export const STEP_LIST_LOGS = `(() => { try {
 export function stepOpenLog(index: number): string {
   return `(() => { try {
     ${HELPERS}
-    const found = formByScreenId("npsb210m01");
-    if (!found) return JSON.stringify({ ok: false, reason: "목록 화면이 없습니다." });
-    const inner = found.form._div_bizFrameMain ? found.form._div_bizFrameMain.form : found.form;
-    const ds = inner.ds_tbnpsb40;
-    if (!ds || ${index} >= ds.getRowCount()) return JSON.stringify({ ok: false, done: true });
+    const holder = formWithDataset("ds_tbnpsb40");
+    if (!holder) return JSON.stringify({ ok: false, reason: "일지 목록 자료를 찾지 못했습니다." });
+    const ds = holder.ds;
+    if (${index} >= ds.getRowCount()) return JSON.stringify({ ok: false, done: true });
     ds.set_rowposition(${index});
 
     // 표를 두 번 눌러 여는 것이 사람이 하는 동작입니다. 그 처리기를 직접 부릅니다.
-    const grid = inner.tab_SswCha && inner.tab_SswCha.tabpage1
-      ? inner.tab_SswCha.tabpage1.form.grd_list : inner.grd_list;
-    if (!grid) return JSON.stringify({ ok: false, reason: "일지 표를 찾지 못했습니다." });
-    const owner = grid.parent;
+    const owner = holder.form;
+    const grid = owner.grd_list;
+    if (!grid) return JSON.stringify({ ok: false, reason: "일지 표(grd_list)를 찾지 못했습니다." });
     const handler = owner["grd_list_oncelldblclick"] || owner["grd_list_oncellclick"];
     if (typeof handler !== "function") {
       return JSON.stringify({ ok: false, reason: "표를 여는 처리기를 찾지 못했습니다." });

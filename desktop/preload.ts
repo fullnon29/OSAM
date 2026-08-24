@@ -18,7 +18,8 @@ contextBridge.exposeInMainWorld("osam", {
   dumpPortal: (saveDir: string) => ipcRenderer.invoke("dump-portal", saveDir),
   recordStart: () => ipcRenderer.invoke("record-start"),
   recordStop: (saveDir: string) => ipcRenderer.invoke("record-stop", saveDir),
-  autoFetch: (opts: { onlyOne: boolean; reason: string }) => ipcRenderer.invoke("auto-fetch", opts),
+  autoFetch: (opts: { onlyOne: boolean; reason: string; saveDir: string }) =>
+    ipcRenderer.invoke("auto-fetch", opts),
   autoStop: () => ipcRenderer.invoke("auto-stop"),
   onAutoLog: (cb: (log: unknown) => void) => {
     ipcRenderer.on("auto-log", (_e, payload) => cb(payload));

@@ -127,8 +127,10 @@
       document.getElementById("autoOne").disabled = true;
       document.getElementById("autoAll").disabled = true;
       document.getElementById("autoStop").disabled = false;
-      const r = await window.osam.autoFetch({ onlyOne, reason: "내부 업무처리" });
+      if (!downloadDir) { addAutoLog({ kind: "error", text: "저장 폴더를 먼저 고르십시오." }); return; }
+      const r = await window.osam.autoFetch({ onlyOne, reason: "내부 업무처리", saveDir: downloadDir });
       addAutoLog({ kind: "info", text: `끝났습니다 — 받음 ${r.saved} · 건너뜀 ${r.skipped} · 실패 ${r.failed}` });
+      if (r.logFile) addAutoLog({ kind: "info", text: "기록: " + r.logFile });
       document.getElementById("autoOne").disabled = false;
       document.getElementById("autoAll").disabled = false;
       document.getElementById("autoStop").disabled = true;

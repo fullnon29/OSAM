@@ -228,9 +228,33 @@ ipcMain.handle("record-state", () => isRecording());
  * 로그인은 이미 사람이 해 두신 상태여야 합니다. 열람 사유는 공단에 그대로
  * 기록되므로 화면에서 고른 값을 그대로 넘깁니다.
  */
-ipcMain.handle("auto-fetch", async (event, opts: { onlyOne: boolean; reason: string }) => {
-  return runAutomation(opts.onlyOne, opts.reason, (log) => event.sender.send("auto-log", log));
-});
+ipcMain.handle(
+  "auto-fetch",
+  async (event, opts: { onlyOne: boolean; reason: string; saveDir: string }) => {
+    // 진행 내역을 파일로도 남깁니다. 화면에만 뿌리면 무엇이 어긋났는지
+    // 나중에 되짚을 수 없고, 받은 기록을 센터가 확인할 수도 없습니다.
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const logFile = path.join(opts.saveDir, `받기기록-${stamp}.txt`);
+    const lines: string[] = [`시작 ${new Date().toLocaleString("ko-KR")}`, `열람 사유: ${opts.reason}`, ""];
+
+    const result = await runAutomation(opts.onlyOne, opts.reason, (log) => {
+      lines.push(`[${log.kind}] ${log.text}`);
+      event.sender.send("auto-log", log);
+    });
+
+    lines.push(
+      "",
+      `끝 ${new Date().toLocaleString("ko-KR")}`,
+      `받음 ${result.saved} · 건너뜀 ${result.skipped} · 실패 ${result.failed}`
+    );
+    try {
+      writeFileSync(logFile, lines.join("\r\n"), "utf8");
+    } catch {
+      // 기록을 남기지 못해도 받은 파일은 그대로입니다.
+    }
+    return { ...result, logFile };
+  }
+);
 
 ipcMain.handle("auto-stop", () => {
   requestStop();

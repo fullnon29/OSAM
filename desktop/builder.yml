@@ -3,7 +3,7 @@ productName: 오샘 서류 정리 도구
 # 번들된 코드와 화면 파일만 담습니다. 프로젝트 소스나 .env.local 은 넣지 않습니다.
 directories:
   # 바탕화면은 동기화 대상이라 빌드 중 파일이 잠깁니다. 동기화 밖에 만듭니다.
-  output: C:/osam-build/release
+  output: C:/osam-build/out
   buildResources: desktop
 files:
   # dist 안의 파일이 꾸러미 최상위로 들어갑니다.
@@ -17,7 +17,7 @@ files:
 extraMetadata:
   main: main.js
   # 새 기능(공단 포털 받기)이 들어간 판을 구별하기 위해 올립니다.
-  version: 0.6.0
+  version: 0.6.1
 win:
   target:
     - target: portable
