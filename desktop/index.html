@@ -145,6 +145,23 @@
   let folder = null, running = false;
   const $ = (id) => document.getElementById(id);
 
+  // 지난번에 쓰신 폴더를 그대로 되살립니다. 매번 다시 고르지 않으셔도 됩니다.
+  window.osam.getPrefs().then((prefs) => {
+    if (prefs.downloadDir) {
+      downloadDir = prefs.downloadDir;
+      $("dlPath").textContent = prefs.downloadDir;
+      $("portal").disabled = false;
+    }
+    if (prefs.importDir) {
+      folder = prefs.importDir;
+      $("path").textContent = prefs.importDir;
+      window.osam.scanFolder(prefs.importDir).then(({ count }) => {
+        $("hint").textContent = `hwp·pdf 파일 ${count.toLocaleString()}건을 찾았습니다.`;
+        $("start").disabled = count === 0;
+      });
+    }
+  });
+
   $("pick").onclick = async () => {
     const dir = await window.osam.chooseFolder();
     if (!dir) return;

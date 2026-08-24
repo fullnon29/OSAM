@@ -48,6 +48,34 @@ function loadSettings(): { url: string; key: string } | null {
   return null;
 }
 
+/**
+ * 자주 쓰는 폴더는 기억해 둡니다.
+ *
+ * 매번 다시 고르게 하면 번거롭고, 엉뚱한 폴더를 고를 위험도 있습니다.
+ * 접속 열쇠가 든 settings.json 과는 따로 둡니다.
+ */
+type Prefs = { downloadDir?: string; importDir?: string };
+
+function prefsFile(): string {
+  return path.join(app.getPath("userData"), "prefs.json");
+}
+
+function loadPrefs(): Prefs {
+  try {
+    return JSON.parse(readFileSync(prefsFile(), "utf8")) as Prefs;
+  } catch {
+    return {};
+  }
+}
+
+function savePrefs(patch: Prefs): void {
+  try {
+    writeFileSync(prefsFile(), JSON.stringify({ ...loadPrefs(), ...patch }, null, 1), "utf8");
+  } catch {
+    // 저장하지 못해도 동작에는 지장이 없습니다.
+  }
+}
+
 function getDb(): SupabaseClient {
   if (db) return db;
   const settings = loadSettings();
@@ -86,12 +114,17 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
+ipcMain.handle("get-prefs", () => loadPrefs());
+
 ipcMain.handle("choose-folder", async () => {
   const result = await dialog.showOpenDialog({
     title: "서류가 들어 있는 폴더를 선택하세요",
+    defaultPath: loadPrefs().importDir,
     properties: ["openDirectory"],
   });
-  return result.canceled ? null : result.filePaths[0];
+  if (result.canceled) return null;
+  savePrefs({ importDir: result.filePaths[0] });
+  return result.filePaths[0];
 });
 
 ipcMain.handle("scan-folder", async (_e, dir: string) => {
@@ -120,9 +153,12 @@ ipcMain.handle("import-folder", async (event, dir: string) => {
 ipcMain.handle("choose-download-folder", async () => {
   const result = await dialog.showOpenDialog({
     title: "받은 일지를 저장할 폴더 (구글 드라이브 동기화 폴더 권장)",
+    defaultPath: loadPrefs().downloadDir,
     properties: ["openDirectory", "createDirectory"],
   });
-  return result.canceled ? null : result.filePaths[0];
+  if (result.canceled) return null;
+  savePrefs({ downloadDir: result.filePaths[0] });
+  return result.filePaths[0];
 });
 
 ipcMain.handle("open-portal", async (event, saveDir: string) => {

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 
 // 화면에는 파일 시스템을 직접 열어 주지 않고, 필요한 동작만 통로로 내줍니다.
 contextBridge.exposeInMainWorld("osam", {
+  getPrefs: () => ipcRenderer.invoke("get-prefs"),
   chooseFolder: () => ipcRenderer.invoke("choose-folder"),
   scanFolder: (dir: string) => ipcRenderer.invoke("scan-folder", dir),
   importFolder: (dir: string) => ipcRenderer.invoke("import-folder", dir),
