@@ -2,5 +2,5 @@
   "name": "osam-desktop",
   "version": "1.0.0",
   "description": "오샘 서류 정리 도구",
-  "main": "dist/main.js"
+  "main": "main.js"
 }
