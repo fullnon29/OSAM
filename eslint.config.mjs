@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // esbuild 가 만들어 내는 꾸러미. 사람이 고치는 파일이 아닙니다.
+    "desktop/dist/**",
   ]),
 ]);
 

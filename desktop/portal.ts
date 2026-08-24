@@ -12,7 +12,7 @@
 // 로그인 상태는 창을 닫아도 유지됩니다(persist 세션). 매번 로그인하지 않아도
 // 되도록 한 것이며, 저장되는 것은 브라우저 쿠키뿐입니다.
 
-import { BrowserWindow, session, shell } from "electron";
+import { BrowserWindow, session } from "electron";
 import { mkdirSync, existsSync } from "node:fs";
 import path from "node:path";
 
@@ -52,6 +52,38 @@ function uniquePath(dir: string, name: string): string {
  *                받는 즉시 드라이브에 올라갑니다.
  * @param onEvent 저장 결과를 화면에 알리는 통로
  */
+/**
+ * 포털이 새로 여는 창을 어떻게 다룰지 정합니다.
+ *
+ * 이 포털은 기록창·인쇄 미리보기를 새 창으로 띄우고, 그중에는 주소가
+ * about:blank 인 빈 창도 있습니다(열어 놓고 내용을 채워 넣는 방식).
+ * 그런 주소를 윈도우에 넘기면 "이 링크를 열려면 새 앱이 필요합니다" 창이
+ * 뜹니다. 포털이 여는 창은 모두 우리가 같은 세션으로 열어 줍니다.
+ *
+ * 바깥 프로그램으로는 아무것도 넘기지 않습니다. 화면이 시키는 대로
+ * 운영체제를 여는 것은 위험하기 때문입니다.
+ */
+function attachWindowBehavior(wc: Electron.WebContents): void {
+  wc.setWindowOpenHandler(({ url }) => {
+    const isBlank = !url || url === "about:blank" || url.startsWith("about:");
+    if (isBlank || url.startsWith("http://") || url.startsWith("https://")) {
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          width: 1100,
+          height: 800,
+          webPreferences: { partition: PARTITION, contextIsolation: true, sandbox: true },
+        },
+      };
+    }
+    // javascript:, ms-windows-store: 같은 것은 열지 않습니다.
+    return { action: "deny" };
+  });
+
+  // 그렇게 열린 창이 또 창을 여는 경우가 있어 같은 규칙을 물려줍니다.
+  wc.on("did-create-window", (child) => attachWindowBehavior(child.webContents));
+}
+
 export function openPortal(saveDir: string, onEvent: (e: DownloadEvent) => void): BrowserWindow {
   if (portalWindow && !portalWindow.isDestroyed()) {
     portalWindow.focus();
@@ -93,19 +125,7 @@ export function openPortal(saveDir: string, onEvent: (e: DownloadEvent) => void)
     },
   });
 
-  // 포털이 새 창으로 여는 보고서·미리보기도 같은 세션에서 열리게 둡니다.
-  portalWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("http")) {
-      return {
-        action: "allow",
-        overrideBrowserWindowOptions: {
-          webPreferences: { partition: PARTITION, contextIsolation: true, sandbox: true },
-        },
-      };
-    }
-    shell.openExternal(url);
-    return { action: "deny" };
-  });
+  attachWindowBehavior(portalWindow.webContents);
 
   portalWindow.on("closed", () => {
     portalWindow = null;
