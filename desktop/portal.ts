@@ -450,14 +450,41 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type StepResult = { ok?: boolean; reason?: string; done?: boolean; [k: string]: unknown };
 
+/**
+ * 걸음을 실행합니다.
+ *
+ * 포털은 기록창·인쇄 미리보기를 새 창이나 iframe 으로 띄웁니다. 첫 창만
+ * 들여다보면 그 안에서 벌어지는 일을 놓칩니다. 그래서 같은 로그인 세션에
+ * 속한 모든 창과 그 안의 모든 틀을 훑어, 먼저 성공하는 곳의 결과를 씁니다.
+ *
+ * 자료를 바꾸는 걸음도 안전합니다. 그 자료를 가진 곳에서만 성공하고
+ * 나머지는 "찾지 못했습니다"로 그냥 지나가기 때문입니다.
+ */
 async function run(script: string): Promise<StepResult> {
-  if (!portalWindow || portalWindow.isDestroyed()) return { ok: false, reason: "포털 창이 닫혔습니다." };
-  try {
-    const json = (await portalWindow.webContents.executeJavaScript(script, true)) as string;
-    return JSON.parse(json) as StepResult;
-  } catch (err) {
-    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  const ses = session.fromPartition(PARTITION);
+  const windows = BrowserWindow.getAllWindows().filter(
+    (w) => !w.isDestroyed() && w.webContents.session === ses
+  );
+  if (!windows.length) return { ok: false, reason: "포털 창이 열려 있지 않습니다." };
+
+  let last: StepResult = { ok: false, reason: "실행할 틀을 찾지 못했습니다." };
+
+  for (const win of windows) {
+    const frames = [win.webContents.mainFrame, ...win.webContents.mainFrame.framesInSubtree];
+    for (const frame of frames) {
+      try {
+        const json = (await frame.executeJavaScript(script, true)) as string;
+        const parsed = JSON.parse(json) as StepResult;
+        if (parsed.ok) return parsed;
+        // 그 틀에 없다는 뜻이므로 다음 틀을 봅니다. 이유는 마지막 것을 남깁니다.
+        last = parsed;
+      } catch (err) {
+        // nexacro 가 없는 틀(빈 창 등)입니다. 넘어갑니다.
+        last = { ok: false, reason: err instanceof Error ? err.message : String(err) };
+      }
+    }
   }
+  return last;
 }
 
 /**
