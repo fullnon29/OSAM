@@ -151,52 +151,108 @@ export async function clearPortalSession(): Promise<void> {
    그런데 화면에는 어르신 163분의 성함과 인정번호가 떠 있습니다.
    그래서 뼈대만 뽑고 글자는 길이로만 남깁니다. 개인정보는 나가지 않습니다. */
 
-/** 화면 안에서 실행되어 구조만 추려 내는 코드. */
+/**
+ * 화면 안에서 실행되어 구조만 추려 내는 코드.
+ *
+ * 이 포털은 Nexacro 로 만들어져 있어, 화면 요소가 DOM 이 아니라 객체로
+ * 관리됩니다. DOM 을 훑으면 스크롤바만 잔뜩 나오고 정작 단추와 표는
+ * 너무 깊이 묻혀 있어 잡히지 않습니다. 그래서 Nexacro 에게 직접 묻습니다.
+ *
+ * 여기서도 값은 가립니다. 필요한 것은 '무엇이 있는지'이지 '무엇이 적혔는지'가
+ * 아니기 때문입니다.
+ */
 const DUMP_SCRIPT = `(() => {
-  const KEEP_ATTRS = ["id", "name", "class", "type", "value", "title", "alt", "href", "onclick"];
-  // 개인정보가 들어갈 수 있는 값은 길이만 남깁니다.
+ try {
   const redact = (s) => {
-    if (!s) return "";
-    const t = String(s).trim();
+    if (typeof s !== "string") return "";
+    const t = s.trim();
     if (!t) return "";
-    // 한글 이름·인정번호·생년월일처럼 보이면 가립니다.
-    if (/[가-힣]{2,4}\s*$/.test(t) && t.length <= 6) return "《이름?" + t.length + "》";
     if (/L\d{8,}/.test(t)) return "《인정번호》";
-    if (/\d{4}-\d{2}-\d{2}/.test(t)) return t.replace(/\d{4}-\d{2}-\d{2}/g, "《날짜》");
-    if (t.length > 24) return "《글자" + t.length + "》";
+    if (/^[가-힣]{2,4}$/.test(t)) return "《이름》";
+    if (/\d{4}-\d{2}-\d{2}/.test(t)) return "《날짜》";
+    if (t.length > 30) return "《글자" + t.length + "》";
     return t;
   };
-  const walk = (el, depth) => {
-    if (depth > 14) return null;
-    const attrs = {};
-    for (const a of KEEP_ATTRS) {
-      const v = el.getAttribute && el.getAttribute(a);
-      if (v) attrs[a] = a === "value" || a === "title" || a === "alt" ? redact(v) : v;
-    }
+
+  if (typeof nexacro === "undefined" || !nexacro.getApplication) {
+    return JSON.stringify({ kind: "not-nexacro", url: location.href, title: document.title });
+  }
+
+  const app = nexacro.getApplication();
+
+  // 화면에 놓인 요소를 훑습니다. 종류(단추·표·입력칸)와 이름만 담습니다.
+  const walk = (c, depth) => {
+    if (!c || depth > 8) return null;
+    const node = {
+      name: c.name || c.id || "(이름없음)",
+      type: (c._type_name || (c.constructor && c.constructor.name) || "?"),
+    };
+    if (typeof c.text === "string" && c.text) node.text = redact(c.text);
+    if (typeof c.value === "string" && c.value) node.value = redact(c.value);
+    if (c.visible === false) node.hidden = true;
+
     const kids = [];
-    for (const child of el.children) {
-      const c = walk(child, depth + 1);
-      if (c) kids.push(c);
-    }
-    const own = [...el.childNodes]
-      .filter((n) => n.nodeType === 3)
-      .map((n) => redact(n.nodeValue))
-      .filter(Boolean)
-      .join(" ");
-    // 같은 모양이 줄줄이 반복되는 표는 앞의 세 줄만 남깁니다.
-    const node = { tag: el.tagName.toLowerCase(), ...attrs };
-    if (own) node.text = own;
-    if (kids.length) {
-      if (el.tagName === "TBODY" && kids.length > 3) {
-        node.children = kids.slice(0, 3);
-        node.repeated = kids.length;
-      } else {
-        node.children = kids;
+    if (c.components && c.components.length) {
+      for (let i = 0; i < c.components.length; i++) {
+        const k = walk(c.components[i], depth + 1);
+        if (k) kids.push(k);
       }
     }
+    if (c.form && c.form !== c) {
+      const f = walk(c.form, depth + 1);
+      if (f) kids.push(f);
+    }
+    if (kids.length) node.children = kids;
     return node;
   };
-  return JSON.stringify({ url: location.href, title: document.title, dom: walk(document.body, 0) });
+
+  // 화면이 가진 자료 묶음(Dataset)과 기능(function) 이름.
+  // 자동화는 단추를 누르는 것보다 이 기능을 직접 부르는 쪽이 튼튼합니다.
+  const describeForm = (form) => {
+    const datasets = [];
+    const functions = [];
+    for (const key in form) {
+      try {
+        const v = form[key];
+        if (!v) continue;
+        if (v._type_name === "Dataset") {
+          datasets.push({ name: key, rows: v.getRowCount ? v.getRowCount() : -1,
+            cols: v.getColCount ? v.getColCount() : -1,
+            colIds: (() => { const out=[]; const n = v.getColCount?v.getColCount():0;
+              for (let i=0;i<n;i++) out.push(v.getColID(i)); return out; })() });
+        } else if (typeof v === "function" && /^(fn_|btn_|div_|grd_).*/.test(key)) {
+          functions.push(key);
+        }
+      } catch (e) { /* 읽지 못하는 것은 건너뜁니다 */ }
+    }
+    return { datasets, functions };
+  };
+
+  const frames = [];
+  const collectFrames = (fs, depth) => {
+    if (!fs || depth > 6) return;
+    if (fs.form) {
+      const info = { name: fs.name, url: fs.form.url || "" };
+      try { Object.assign(info, describeForm(fs.form)); } catch (e) {}
+      try { info.components = walk(fs.form, 0); } catch (e) {}
+      frames.push(info);
+    }
+    const list = fs.frames || fs.components;
+    if (list && list.length) {
+      for (let i = 0; i < list.length; i++) collectFrames(list[i], depth + 1);
+    }
+  };
+  collectFrames(app.mainframe, 0);
+
+  return JSON.stringify({ kind: "nexacro", url: location.href, title: document.title, frames });
+ } catch (e) {
+  return JSON.stringify({
+    kind: "error",
+    url: location.href,
+    title: document.title,
+    message: String((e && e.message) || e),
+  });
+ }
 })()`;
 
 export type StructureDump = { url: string; title: string; json: string };
@@ -220,8 +276,17 @@ export async function dumpPortalStructure(): Promise<StructureDump[]> {
         const json = (await frame.executeJavaScript(DUMP_SCRIPT, true)) as string;
         const parsed = JSON.parse(json) as { url: string; title: string };
         out.push({ url: parsed.url, title: parsed.title, json });
-      } catch {
-        // 다른 출처의 프레임은 읽을 수 없습니다. 건너뜁니다.
+      } catch (err) {
+        // 왜 읽지 못했는지 남겨 둡니다. 빈 파일만 나오면 원인을 알 수 없습니다.
+        out.push({
+          url: frame.url,
+          title: "(읽지 못함)",
+          json: JSON.stringify({
+            kind: "unreadable",
+            url: frame.url,
+            message: err instanceof Error ? err.message : String(err),
+          }),
+        });
       }
     }
   }

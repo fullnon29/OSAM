@@ -188,7 +188,7 @@ ipcMain.handle("dump-portal", async (_e, saveDir: string) => {
   writeFileSync(
     target,
     JSON.stringify(
-      dumps.map((d) => ({ url: d.url, title: d.title, dom: JSON.parse(d.json).dom })),
+      dumps.map((d) => JSON.parse(d.json)),
       null,
       1
     ),
