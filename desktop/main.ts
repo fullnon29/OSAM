@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { findDocuments, importDocuments } from "../src/lib/documents/import-runner";
+import { clearPortalSession, isPortalOpen, openPortal } from "./portal";
 
 let db: SupabaseClient | null = null;
 let cancelRequested = false;
@@ -102,4 +103,28 @@ ipcMain.handle("import-folder", async (event, dir: string) => {
     shouldCancel: () => cancelRequested,
     onProgress: (p) => event.sender.send("import-progress", p),
   });
+});
+
+/* ── 공단 포털에서 일지 받기 ──────────────────────────────────
+   로그인은 사람이 직접 합니다. 프로그램은 내려받은 파일을 지정한 폴더에
+   저장하고, 그 폴더를 그대로 올려 어르신에 연결하는 일까지 맡습니다. */
+
+ipcMain.handle("choose-download-folder", async () => {
+  const result = await dialog.showOpenDialog({
+    title: "받은 일지를 저장할 폴더 (구글 드라이브 동기화 폴더 권장)",
+    properties: ["openDirectory", "createDirectory"],
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
+
+ipcMain.handle("open-portal", async (event, saveDir: string) => {
+  openPortal(saveDir, (e) => event.sender.send("portal-download", e));
+  return { open: true };
+});
+
+ipcMain.handle("portal-open?", () => isPortalOpen());
+
+ipcMain.handle("clear-portal-session", async () => {
+  await clearPortalSession();
+  return { cleared: true };
 });

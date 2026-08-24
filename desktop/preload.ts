@@ -9,4 +9,12 @@ contextBridge.exposeInMainWorld("osam", {
   onProgress: (cb: (p: unknown) => void) => {
     ipcRenderer.on("import-progress", (_e, payload) => cb(payload));
   },
+
+  // 공단 포털에서 일지 받기
+  chooseDownloadFolder: () => ipcRenderer.invoke("choose-download-folder"),
+  openPortal: (saveDir: string) => ipcRenderer.invoke("open-portal", saveDir),
+  clearPortalSession: () => ipcRenderer.invoke("clear-portal-session"),
+  onPortalDownload: (cb: (e: unknown) => void) => {
+    ipcRenderer.on("portal-download", (_e, payload) => cb(payload));
+  },
 });

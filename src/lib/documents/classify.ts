@@ -9,6 +9,7 @@
 
 export const DOC_TYPES = [
   "욕구사정",
+  "업무수행일지",
   "급여제공계획",
   "낙상위험도",
   "욕창위험도",
@@ -22,6 +23,7 @@ const HEAD_CHARS = 1500;
 
 const TITLE_RULES: { type: DocType; pattern: RegExp }[] = [
   { type: "급여제공계획", pattern: /급여제공계획|장기요양이용계획/ },
+  { type: "업무수행일지", pattern: /업무수행\s*일지/ },
   { type: "낙상위험도", pattern: /낙상위험도|Huhn/i },
   { type: "욕창위험도", pattern: /욕창위험도|Braden/i },
   { type: "인지(CIST)", pattern: /CIST|인지선별/i },
@@ -48,6 +50,14 @@ const MIN_SECTION_MARKERS = 3;
 export function classifyDocument(text: string): DocType[] {
   const head = text.slice(0, HEAD_CHARS);
   const types = TITLE_RULES.filter((r) => r.pattern.test(head)).map((r) => r.type);
+
+  // 업무수행일지 안에는 욕구사정 항목이 통째로 들어 있어 아래 영역 세기에
+  // 걸립니다. 하지만 이것은 매월 방문 일지이지 욕구사정 서류가 아니므로,
+  // 일지로 가려졌으면 욕구사정으로 세지 않습니다.
+  // (일지에서 욕구사정 밑감을 뽑는 일은 extract-worklog 가 따로 합니다.)
+  if (types.includes("업무수행일지")) {
+    return types.filter((t) => t !== "급여제공계획");
+  }
 
   const markerHits = SECTION_MARKERS.filter((re) => re.test(text)).length;
   if (markerHits >= MIN_SECTION_MARKERS) types.unshift("욕구사정");
