@@ -51,6 +51,11 @@ export async function POST(request: Request) {
       recipientName,
       sectionTitle: section.title,
       sectionQA,
+      // 이미 적어 두신 내용이 있으면 그것을 실제 관찰 메모로 삼습니다.
+      observationNotes:
+        typeof responses[`${sectionCode}_opinion`] === "string"
+          ? (responses[`${sectionCode}_opinion`] as string)
+          : undefined,
       houseSamples: formatHouseSamples(houseSamples),
       recipientHistory: formatRecipientHistory(history),
     });

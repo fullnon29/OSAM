@@ -382,7 +382,8 @@ table.admin-table tbody tr:hover{background:var(--paper);}
 
 /* 오프라인 저장 안내 */
 .offline-note{background:#FBEAD9; border:1px solid var(--ochre-soft); color:#8A4B24; border-radius:12px; padding:12px 16px; font-size:13px; line-height:1.65; margin-bottom:14px;}
-.assist-btn{width:auto; margin-top:8px; padding:7px 14px; font-size:12.5px;}
+.assist-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
+.assist-btn{width:auto; padding:7px 14px; font-size:12.5px;}
 .offline-note.subtle{background:var(--paper-deep); border-color:var(--line); color:var(--ink-soft);}
 
 /* 기기에 남은 전송 대기 기록 알림. 어느 화면에서든 아래쪽에 조용히 떠 있습니다. */

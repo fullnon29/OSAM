@@ -58,6 +58,8 @@ export default function AssessmentEditor({
   const [referencedPast, setReferencedPast] = useState(0);
   // 지금 판단근거를 작성 중인 항목
   const [assistingSection, setAssistingSection] = useState<string | null>(null);
+  // 풀어쓰기 전에 적어 두셨던 메모. 되돌릴 수 있게 남겨 둡니다.
+  const [notesBackup, setNotesBackup] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineNote, setOfflineNote] = useState<string | null>(null);
@@ -115,10 +117,12 @@ export default function AssessmentEditor({
         setError(json.error || "판단근거를 만들지 못했습니다.");
         return;
       }
-      // 이미 쓰신 내용이 있으면 지우지 않고 아래에 이어 붙입니다.
+      // 적어 두신 메모를 근거로 풀어쓴 것이므로 그 자리를 채웁니다.
+      // 원래 메모는 따로 남겨 두어 언제든 되돌릴 수 있게 합니다.
       const code = `${sectionCode}_opinion`;
       const previous = typeof responses[code] === "string" ? (responses[code] as string).trim() : "";
-      onChange(code, previous ? `${previous}\n${json.opinion}` : json.opinion);
+      if (previous) setNotesBackup((prev) => ({ ...prev, [code]: previous }));
+      onChange(code, json.opinion);
     } catch {
       setError("연결이 없어 판단근거를 만들지 못했습니다.");
     } finally {
@@ -303,6 +307,17 @@ export default function AssessmentEditor({
         onChange={onChange}
         onAssist={assistOpinion}
         assistingSection={assistingSection}
+        notesBackup={notesBackup}
+        onRestoreNotes={(code) => {
+          const saved = notesBackup[code];
+          if (saved === undefined) return;
+          onChange(code, saved);
+          setNotesBackup((prev) => {
+            const next = { ...prev };
+            delete next[code];
+            return next;
+          });
+        }}
       />
 
       <div className="detail-card assess-section">

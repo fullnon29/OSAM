@@ -5,6 +5,11 @@ import { ASSESSMENT_SECTIONS, type Field } from "@/lib/assessment-form";
 export type ResponseValue = string | string[] | number | undefined;
 export type Responses = Record<string, ResponseValue>;
 
+/** 이미 적어 둔 내용이 있는지. 단추 문구를 바꾸는 데 씁니다. */
+function hasText(value: ResponseValue): boolean {
+  return typeof value === "string" && value.trim() !== "";
+}
+
 function FieldInput({
   field,
   value,
@@ -96,6 +101,8 @@ export default function AssessmentFormFields({
   onChange,
   onAssist,
   assistingSection,
+  notesBackup,
+  onRestoreNotes,
 }: {
   responses: Responses;
   onChange: (code: string, value: ResponseValue) => void;
@@ -106,6 +113,9 @@ export default function AssessmentFormFields({
   onAssist?: (sectionCode: string) => void;
   /** 지금 작성 중인 항목 코드 */
   assistingSection?: string | null;
+  /** 풀어쓰기 전 메모. 되돌리기 단추를 보여 줄지 판단합니다. */
+  notesBackup?: Record<string, string>;
+  onRestoreNotes?: (code: string) => void;
 }) {
   return (
     <>
@@ -130,17 +140,31 @@ export default function AssessmentFormFields({
                     onChange={(v) => onChange(field.code, v)}
                   />
                   {onAssist && field.code.endsWith("_opinion") && (
-                    <button
-                      className="btn outline small assist-btn"
-                      type="button"
-                      onClick={() => onAssist(section.code)}
-                      disabled={assistingSection === section.code}
-                      title="이 항목의 체크 내용과 지난 기록을 바탕으로 오샘 서술형식의 판단근거를 만들어 줍니다."
-                    >
-                      {assistingSection === section.code
-                        ? "작성 중…"
-                        : "🪄 판단근거 작성 (오샘 서술형식)"}
-                    </button>
+                    <div className="assist-row">
+                      <button
+                        className="btn outline small assist-btn"
+                        type="button"
+                        onClick={() => onAssist(section.code)}
+                        disabled={assistingSection === section.code}
+                        title="방문 때 보신 것을 짧게 적어 두고 누르시면, 그 내용을 살려 오샘 서술형식으로 풀어 씁니다."
+                      >
+                        {assistingSection === section.code
+                          ? "작성 중…"
+                          : hasText(responses[field.code])
+                            ? "🪄 관찰 메모 풀어쓰기"
+                            : "🪄 판단근거 작성 (오샘 서술형식)"}
+                      </button>
+                      {notesBackup?.[field.code] !== undefined && onRestoreNotes && (
+                        <button
+                          className="btn outline small assist-btn"
+                          type="button"
+                          onClick={() => onRestoreNotes(field.code)}
+                          title="풀어쓰기 전 메모로 되돌립니다."
+                        >
+                          ↩ 메모로 되돌리기
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

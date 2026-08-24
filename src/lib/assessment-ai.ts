@@ -104,17 +104,34 @@ export async function draftOpinionWithAI(params: {
   sectionQA: string;
   houseSamples?: string;
   recipientHistory?: string;
+  /**
+   * 사회복지사가 방문 때 직접 적어 둔 관찰 메모.
+   *
+   * 판단근거가 인정받으려면 어르신의 현재 상태를 구체적으로 적어야 하는데,
+   * 그 구체적인 내용은 실제로 보신 것이어야 합니다. 메모를 주시면 AI가
+   * 지어내는 대신 그 내용을 풀어 씁니다.
+   */
+  observationNotes?: string;
 }): Promise<string> {
+  const notes = params.observationNotes?.trim();
+
   const user = [
     `수급자 성명: ${params.recipientName}`,
     `작성할 항목: ${params.sectionTitle}`,
     "",
     "[이 항목의 문답]",
     params.sectionQA,
+    notes
+      ? `\n[사회복지사가 방문 때 직접 적은 관찰 메모]\n${notes}\n` +
+        "이 메모는 실제로 보고 들은 내용입니다. 빠뜨리지 말고 모두 살려서, " +
+        "짧게 적힌 것을 온전한 문장으로 풀어 쓰십시오. 여기 적힌 구체적인 내용" +
+        "(동작·부위·사물·장소 등)은 그대로 쓰셔도 됩니다."
+      : "",
     params.recipientHistory ? `\n[이 어르신의 지난 기록]\n${params.recipientHistory}` : "",
     "",
-    `'${params.sectionTitle}' 항목의 '의견 및 판단근거'를 2~4문장으로 작성하십시오.`,
-    "무엇을 보고 판단했는지 먼저 밝히고, 관찰된 상태와 필요한 지원을 적으십시오.",
+    `'${params.sectionTitle}' 항목의 '의견 및 판단근거'를 3~5문장으로 작성하십시오.`,
+    "무엇을 보고 판단했는지 먼저 밝히고, 어르신의 현재 상태를 구체적으로 적은 다음,",
+    "필요한 지원으로 맺으십시오.",
     "이 항목과 관계없는 내용은 적지 마십시오. 본문만 출력하십시오.",
   ].join("\n");
 
