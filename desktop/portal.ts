@@ -154,12 +154,13 @@ export async function clearPortalSession(): Promise<void> {
 /**
  * 화면 안에서 실행되어 구조만 추려 내는 코드.
  *
- * 이 포털은 Nexacro 로 만들어져 있어, 화면 요소가 DOM 이 아니라 객체로
- * 관리됩니다. DOM 을 훑으면 스크롤바만 잔뜩 나오고 정작 단추와 표는
- * 너무 깊이 묻혀 있어 잡히지 않습니다. 그래서 Nexacro 에게 직접 묻습니다.
+ * 이 포털은 Nexacro 로 만들어져 있습니다. 다행히 화면 요소의 DOM id 에
+ * 구성요소 경로가 통째로 들어 있습니다.
+ *   mainframe.VFrameSet.HFrameSet.VFrameSetSub.framesetWork.winNPS…form.btn_print
+ * 그래서 id 만 모으면 깊이 제한 없이 전체 구조를 얻습니다. 모은 경로로
+ * Nexacro 객체를 되짚어 종류(단추·표·입력칸)와 자료 묶음까지 알아냅니다.
  *
- * 여기서도 값은 가립니다. 필요한 것은 '무엇이 있는지'이지 '무엇이 적혔는지'가
- * 아니기 때문입니다.
+ * 값은 가립니다. 필요한 것은 '무엇이 있는지'이지 '무엇이 적혔는지'가 아닙니다.
  */
 const DUMP_SCRIPT = `(() => {
  try {
@@ -169,87 +170,87 @@ const DUMP_SCRIPT = `(() => {
     if (!t) return "";
     if (/L\d{8,}/.test(t)) return "《인정번호》";
     if (/^[가-힣]{2,4}$/.test(t)) return "《이름》";
-    if (/\d{4}-\d{2}-\d{2}/.test(t)) return "《날짜》";
+    if (/\d{4}[-.]\d{1,2}[-.]\d{1,2}/.test(t)) return "《날짜》";
     if (t.length > 30) return "《글자" + t.length + "》";
     return t;
   };
 
-  if (typeof nexacro === "undefined" || !nexacro.getApplication) {
-    return JSON.stringify({ kind: "not-nexacro", url: location.href, title: document.title });
-  }
+  // 1) 화면에 있는 구성요소 경로를 모두 모읍니다.
+  const paths = [];
+  const seen = {};
+  document.querySelectorAll("[id]").forEach((el) => {
+    const id = el.id;
+    if (!id || id.indexOf("mainframe") !== 0) return;
+    if (id.indexOf(":") >= 0) return;              // :icontext 같은 내부 조각
+    if (/\.(hscrollbar|vscrollbar)(\.|$)/.test(id)) return;  // 스크롤바는 뺍니다
+    if (seen[id]) return;
+    seen[id] = 1;
+    paths.push(id);
+  });
 
-  const app = nexacro.getApplication();
+  // 2) 경로로 Nexacro 객체를 되짚습니다.
+  const app = (typeof nexacro !== "undefined" && nexacro.getApplication) ? nexacro.getApplication() : null;
+  const resolve = (path) => {
+    if (!app) return null;
+    const parts = path.split(".");
+    let cur = app;
+    for (let i = 0; i < parts.length; i++) {
+      if (cur == null) return null;
+      cur = cur[parts[i]];
+    }
+    return cur;
+  };
 
-  // 화면에 놓인 요소를 훑습니다. 종류(단추·표·입력칸)와 이름만 담습니다.
-  const walk = (c, depth) => {
-    if (!c || depth > 8) return null;
-    const node = {
-      name: c.name || c.id || "(이름없음)",
-      type: (c._type_name || (c.constructor && c.constructor.name) || "?"),
-    };
-    if (typeof c.text === "string" && c.text) node.text = redact(c.text);
-    if (typeof c.value === "string" && c.value) node.value = redact(c.value);
-    if (c.visible === false) node.hidden = true;
+  const components = [];
+  const datasets = [];
+  const functions = [];
 
-    const kids = [];
-    if (c.components && c.components.length) {
-      for (let i = 0; i < c.components.length; i++) {
-        const k = walk(c.components[i], depth + 1);
-        if (k) kids.push(k);
+  for (let i = 0; i < paths.length && i < 4000; i++) {
+    const path = paths[i];
+    const obj = resolve(path);
+    const item = { path: path };
+    if (obj) {
+      item.type = obj._type_name || (obj.constructor && obj.constructor.name) || "?";
+      if (typeof obj.text === "string" && obj.text) item.text = redact(obj.text);
+      if (obj.visible === false) item.hidden = true;
+
+      // 표(Grid)는 어느 자료 묶음을 보여 주는지가 중요합니다.
+      if (item.type === "Grid" && obj.binddataset) item.binddataset = obj.binddataset;
+
+      // 화면(form)이면 그 안의 자료 묶음과 기능 이름을 훑습니다.
+      if (item.type === "Form" || /\.form$/.test(path)) {
+        for (const key in obj) {
+          try {
+            const v = obj[key];
+            if (!v) continue;
+            if (v._type_name === "Dataset") {
+              const cols = [];
+              const n = v.getColCount ? v.getColCount() : 0;
+              for (let c = 0; c < n; c++) cols.push(v.getColID(c));
+              datasets.push({ form: path, name: key,
+                rows: v.getRowCount ? v.getRowCount() : -1, cols: cols });
+            } else if (typeof v === "function" && /^(fn_|f_|btn_|grd_|div_|cbo_|on)/.test(key)) {
+              functions.push({ form: path, name: key });
+            }
+          } catch (e) { /* 읽지 못하는 것은 건너뜁니다 */ }
+        }
       }
     }
-    if (c.form && c.form !== c) {
-      const f = walk(c.form, depth + 1);
-      if (f) kids.push(f);
-    }
-    if (kids.length) node.children = kids;
-    return node;
-  };
+    components.push(item);
+  }
 
-  // 화면이 가진 자료 묶음(Dataset)과 기능(function) 이름.
-  // 자동화는 단추를 누르는 것보다 이 기능을 직접 부르는 쪽이 튼튼합니다.
-  const describeForm = (form) => {
-    const datasets = [];
-    const functions = [];
-    for (const key in form) {
-      try {
-        const v = form[key];
-        if (!v) continue;
-        if (v._type_name === "Dataset") {
-          datasets.push({ name: key, rows: v.getRowCount ? v.getRowCount() : -1,
-            cols: v.getColCount ? v.getColCount() : -1,
-            colIds: (() => { const out=[]; const n = v.getColCount?v.getColCount():0;
-              for (let i=0;i<n;i++) out.push(v.getColID(i)); return out; })() });
-        } else if (typeof v === "function" && /^(fn_|btn_|div_|grd_).*/.test(key)) {
-          functions.push(key);
-        }
-      } catch (e) { /* 읽지 못하는 것은 건너뜁니다 */ }
-    }
-    return { datasets, functions };
-  };
-
-  const frames = [];
-  const collectFrames = (fs, depth) => {
-    if (!fs || depth > 6) return;
-    if (fs.form) {
-      const info = { name: fs.name, url: fs.form.url || "" };
-      try { Object.assign(info, describeForm(fs.form)); } catch (e) {}
-      try { info.components = walk(fs.form, 0); } catch (e) {}
-      frames.push(info);
-    }
-    const list = fs.frames || fs.components;
-    if (list && list.length) {
-      for (let i = 0; i < list.length; i++) collectFrames(list[i], depth + 1);
-    }
-  };
-  collectFrames(app.mainframe, 0);
-
-  return JSON.stringify({ kind: "nexacro", url: location.href, title: document.title, frames });
- } catch (e) {
   return JSON.stringify({
-    kind: "error",
+    kind: "nexacro",
     url: location.href,
     title: document.title,
+    counts: { components: components.length, datasets: datasets.length, functions: functions.length },
+    components: components,
+    datasets: datasets,
+    functions: functions,
+  });
+ } catch (e) {
+  return JSON.stringify({
+    kind: "error", url: location.href, title: document.title,
     message: String((e && e.message) || e),
   });
  }
