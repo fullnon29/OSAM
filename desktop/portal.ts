@@ -448,6 +448,48 @@ function notifyDownload(file: string | null): void {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** 같은 로그인 세션에 속한 창들. */
+function portalWindows(): BrowserWindow[] {
+  const ses = session.fromPartition(PARTITION);
+  return BrowserWindow.getAllWindows().filter(
+    (w) => !w.isDestroyed() && w.webContents.session === ses
+  );
+}
+
+/**
+ * 일지 한 건을 끝낸 뒤 남은 창을 정리합니다.
+ *
+ * 기록창과 인쇄 뷰어가 닫히지 않고 쌓이면, 걸음마다 훑어야 할 창이 늘어
+ * 점점 느려지다가 결국 멎습니다. 처음 연 포털 창만 남기고 닫습니다.
+ */
+function closeExtraWindows(): number {
+  let closed = 0;
+  for (const win of portalWindows()) {
+    if (win === portalWindow) continue;
+    try {
+      win.destroy();
+      closed++;
+    } catch {
+      // 이미 닫혔으면 그만입니다.
+    }
+  }
+  return closed;
+}
+
+/** 지금 훑어야 할 창과 틀이 몇 개인지. 늘어나면 무언가 안 닫히고 있는 것입니다. */
+function frameLoad(): { windows: number; frames: number } {
+  const wins = portalWindows();
+  let frames = 0;
+  for (const w of wins) {
+    try {
+      frames += 1 + w.webContents.mainFrame.framesInSubtree.length;
+    } catch {
+      /* 무시 */
+    }
+  }
+  return { windows: wins.length, frames };
+}
+
 type StepResult = { ok?: boolean; reason?: string; done?: boolean; [k: string]: unknown };
 
 /**
@@ -461,25 +503,32 @@ type StepResult = { ok?: boolean; reason?: string; done?: boolean; [k: string]: 
  * 나머지는 "찾지 못했습니다"로 그냥 지나가기 때문입니다.
  */
 async function run(script: string): Promise<StepResult> {
-  const ses = session.fromPartition(PARTITION);
-  const windows = BrowserWindow.getAllWindows().filter(
-    (w) => !w.isDestroyed() && w.webContents.session === ses
-  );
+  const windows = portalWindows();
   if (!windows.length) return { ok: false, reason: "포털 창이 열려 있지 않습니다." };
 
   let last: StepResult = { ok: false, reason: "실행할 틀을 찾지 못했습니다." };
 
+  // 한 틀이 멎으면 통째로 얼어붙으므로 기다리는 시간을 정해 둡니다.
+  const withTimeout = (p: Promise<unknown>, ms: number) =>
+    Promise.race([
+      p,
+      new Promise((_r, reject) => setTimeout(() => reject(new Error("응답이 없어 넘어감")), ms)),
+    ]);
+
   for (const win of windows) {
+    if (win.isDestroyed()) continue;
     const frames = [win.webContents.mainFrame, ...win.webContents.mainFrame.framesInSubtree];
     for (const frame of frames) {
+      // 빈 창은 볼 것이 없습니다.
+      if (!frame.url || frame.url === "about:blank") continue;
       try {
-        const json = (await frame.executeJavaScript(script, true)) as string;
+        const json = (await withTimeout(frame.executeJavaScript(script, true), 4000)) as string;
         const parsed = JSON.parse(json) as StepResult;
         if (parsed.ok) return parsed;
         // 그 틀에 없다는 뜻이므로 다음 틀을 봅니다. 이유는 마지막 것을 남깁니다.
         last = parsed;
       } catch (err) {
-        // nexacro 가 없는 틀(빈 창 등)입니다. 넘어갑니다.
+        // nexacro 가 없거나 응답하지 않는 틀입니다. 넘어갑니다.
         last = { ok: false, reason: err instanceof Error ? err.message : String(err) };
       }
     }
@@ -589,7 +638,15 @@ export async function runAutomation(
       }
 
       await run(STEP_CLOSE);
-      await wait(800);
+      await wait(600);
+
+      // 닫히지 않고 남은 창을 치웁니다. 쌓이면 갈수록 느려집니다.
+      const closed = closeExtraWindows();
+      const load = frameLoad();
+      if (closed) onLog({ kind: "info", text: `남은 창 ${closed}개를 닫았습니다.` });
+      if (load.frames > 12) {
+        onLog({ kind: "warn", text: `훑을 틀이 ${load.frames}개로 늘었습니다 (창 ${load.windows}개).` });
+      }
 
       if (onlyOne) {
         onLog({ kind: "info", text: "한 건만 시험했습니다. 결과를 확인해 주십시오." });

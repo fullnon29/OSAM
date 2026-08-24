@@ -5,7 +5,7 @@
 // 읽고 판별하고 올리는 과정은 웹앱·명령어 스크립트와 같은 코드를 씁니다.
 
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { findDocuments, importDocuments } from "../src/lib/documents/import-runner";
@@ -235,23 +235,28 @@ ipcMain.handle(
     // 나중에 되짚을 수 없고, 받은 기록을 센터가 확인할 수도 없습니다.
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     const logFile = path.join(opts.saveDir, `받기기록-${stamp}.txt`);
-    const lines: string[] = [`시작 ${new Date().toLocaleString("ko-KR")}`, `열람 사유: ${opts.reason}`, ""];
+    // 한 줄이 생길 때마다 바로 적습니다. 끝에 몰아서 적으면 중간에 프로그램이
+    // 멈췄을 때 아무 흔적도 남지 않아, 무엇이 잘못됐는지 알 수 없습니다.
+    const append = (line: string) => {
+      try {
+        appendFileSync(logFile, `${line}\r\n`, "utf8");
+      } catch {
+        // 기록을 남기지 못해도 받는 일 자체는 계속합니다.
+      }
+    };
+
+    append(`시작 ${new Date().toLocaleString("ko-KR")}`);
+    append(`열람 사유: ${opts.reason}`);
+    append("");
 
     const result = await runAutomation(opts.onlyOne, opts.reason, (log) => {
-      lines.push(`[${log.kind}] ${log.text}`);
+      append(`[${log.kind}] ${log.text}`);
       event.sender.send("auto-log", log);
     });
 
-    lines.push(
-      "",
-      `끝 ${new Date().toLocaleString("ko-KR")}`,
-      `받음 ${result.saved} · 건너뜀 ${result.skipped} · 실패 ${result.failed}`
-    );
-    try {
-      writeFileSync(logFile, lines.join("\r\n"), "utf8");
-    } catch {
-      // 기록을 남기지 못해도 받은 파일은 그대로입니다.
-    }
+    append("");
+    append(`끝 ${new Date().toLocaleString("ko-KR")}`);
+    append(`받음 ${result.saved} · 건너뜀 ${result.skipped} · 실패 ${result.failed}`);
     return { ...result, logFile };
   }
 );
