@@ -553,7 +553,22 @@ export async function runAutomation(
       }
       await wait(900);
 
-      await run(stepConfirmWarning(reason));
+      const warn = await run(stepConfirmWarning(reason));
+      const alerts = (warn.alerts as string[]) ?? [];
+      for (const a of alerts) onLog({ kind: "warn", text: `포털 알림 — ${a}` });
+      if (!warn.ok) {
+        result.failed++;
+        const opts = (warn.options as string[]) ?? [];
+        onLog({
+          kind: "error",
+          text:
+            `${i + 1}/${total} · ${warn.reason}` +
+            (opts.length ? ` (고를 수 있는 사유: ${opts.filter(Boolean).join(", ")})` : ""),
+        });
+        await run(STEP_CLOSE);
+        continue;
+      }
+      onLog({ kind: "info", text: `열람 사유 '${warn.recordedAs}' 로 기록됩니다.` });
       await wait(2500);
 
       const exported = await run(STEP_EXPORT_PDF);

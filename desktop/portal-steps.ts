@@ -16,6 +16,24 @@
 
 /** 화면 안에서 공통으로 쓰는 도우미. 모든 걸음 앞에 붙습니다. */
 const HELPERS = `
+  // 포털이 띄우는 알림창은 화면을 멈춰 세웁니다. 자동화가 그대로 얼어붙으므로
+  // 글만 받아 두고 넘어갑니다. 무엇이 떴는지는 걸음마다 함께 돌려줍니다.
+  //
+  // 물어보는 창(confirm)은 '아니오'로 답합니다. 무엇을 묻는지 모르는 채
+  // '예'를 누르면 지우기 같은 일이 벌어질 수 있기 때문입니다. 무엇을 물었는지는
+  // 기록에 남으니, 필요하면 그때 판단하면 됩니다.
+  if (!window.__osamAlerts) {
+    window.__osamAlerts = [];
+    window.alert = function (m) { window.__osamAlerts.push("알림: " + String(m)); };
+    window.confirm = function (m) { window.__osamAlerts.push("확인요청(아니오로 답함): " + String(m)); return false; };
+    window.prompt = function (m) { window.__osamAlerts.push("입력요청: " + String(m)); return null; };
+  }
+  const takeAlerts = () => {
+    const out = window.__osamAlerts.slice();
+    window.__osamAlerts.length = 0;
+    return out;
+  };
+
   const app = nexacro.getApplication();
 
   // 열려 있는 작업 화면(form)을 찾습니다.
@@ -197,29 +215,84 @@ export const STEP_CLICK_PRINT = `(() => { try {
 } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 
 /**
- * 개인정보 열람 경고에서 「확인」을 누릅니다.
+ * 개인정보 열람 경고에서 사유를 고르고 「확인」을 누릅니다.
  *
- * 열람 사유는 공단에 그대로 기록됩니다. 그래서 무엇으로 기록되는지 확인해
- * 함께 돌려줍니다. 화면이 이미 골라 둔 값을 임의로 바꾸지는 않습니다 —
- * 기록에 남는 값이라 사람이 고른 것이어야 합니다.
+ * 이 사유는 공단에 그대로 기록됩니다. 그래서 화면에서 선생님이 고르신 값을
+ * 그대로 넣고, 실제로 무엇이 들어갔는지 돌려줍니다. 고를 수 있는 값 목록도
+ * 함께 돌려주어, 원하시는 사유가 없으면 바로 알 수 있게 합니다.
  */
-export function stepConfirmWarning(expected: string): string {
+export function stepConfirmWarning(reason: string): string {
   return `(() => { try {
     ${HELPERS}
-    let chosen = null;
+    const want = ${JSON.stringify(reason)};
+    let picked = null;
+    let options = [];
+
+    // 보이는 콤보 가운데 우리가 찾는 사유를 담고 있는 것을 고릅니다.
+    const combos = [];
     document.querySelectorAll("[id]").forEach((el) => {
       const id = el.id;
       if (!id || id.indexOf("mainframe") !== 0 || id.indexOf(":") >= 0) return;
       const c = resolve(id);
       if (!c || c._type_name !== "Combo" || c.visible === false) return;
-      if (typeof c.text === "string" && c.text.trim()) chosen = c.text.trim();
+      combos.push(c);
     });
+
+    for (const combo of combos) {
+      let ds = null;
+      try { ds = combo.innerdataset || (combo.getInnerDataset && combo.getInnerDataset()); } catch (e) {}
+      if (!ds || !ds.getRowCount) continue;
+
+      const codeCol = combo.codecolumn || "codecolumn";
+      const dataCol = combo.datacolumn || "datacolumn";
+      const here = [];
+      let hitRow = -1;
+      for (let i = 0; i < ds.getRowCount(); i++) {
+        let label = "";
+        try { label = String(ds.getColumn(i, dataCol) || ""); } catch (e) {}
+        here.push(label);
+        if (label && label.replace(/\s/g, "").indexOf(want.replace(/\s/g, "")) >= 0) hitRow = i;
+      }
+      if (hitRow < 0) continue;
+
+      options = here;
+      try {
+        const code = ds.getColumn(hitRow, codeCol);
+        if (typeof combo.set_value === "function") combo.set_value(code);
+        else if (typeof combo.set_index === "function") combo.set_index(hitRow);
+        // 화면이 바뀐 것을 포털에 알립니다.
+        if (typeof combo.updateToDataset === "function") combo.updateToDataset();
+        picked = combo.text || String(code);
+      } catch (e) {}
+      break;
+    }
+
+    if (picked === null) {
+      // 사유를 못 골랐으면 확인을 누르지 않습니다. 눌러 봐야 막힐 뿐입니다.
+      const all = [];
+      for (const c of combos) {
+        let ds = null;
+        try { ds = c.innerdataset; } catch (e) {}
+        if (!ds || !ds.getRowCount) continue;
+        for (let i = 0; i < ds.getRowCount(); i++) {
+          try { all.push(String(ds.getColumn(i, c.datacolumn || "datacolumn") || "")); } catch (e) {}
+        }
+      }
+      return JSON.stringify({
+        ok: false,
+        reason: "열람 사유 '" + want + "'를 고를 수 없었습니다.",
+        options: all,
+        alerts: takeAlerts(),
+      });
+    }
+
     const clicked = clickByText("확인");
     return JSON.stringify({
       ok: clicked.ok,
       reason: clicked.reason,
-      recordedAs: chosen,
-      matchesExpected: chosen ? chosen.indexOf(${JSON.stringify(expected)}) >= 0 : null,
+      recordedAs: picked,
+      options: options,
+      alerts: takeAlerts(),
     });
   } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 }

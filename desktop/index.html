@@ -41,6 +41,14 @@
     <div class="row">
       <button id="dlPick">저장 폴더 선택</button>
       <button id="portal" class="primary" disabled>포털 열기</button>
+      <label style="font-size:12.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px">
+        열람 사유
+        <select id="reason" style="font-family:inherit;font-size:12.5px;padding:6px 8px">
+          <option>내부 업무처리</option>
+          <option>민원처리</option>
+          <option>심사·평가</option>
+        </select>
+      </label>
       <button id="autoOne" class="primary">1건만 시험</button>
       <button id="autoAll">전체 받기</button>
       <button id="autoStop" disabled>중지</button>
@@ -128,7 +136,7 @@
       document.getElementById("autoAll").disabled = true;
       document.getElementById("autoStop").disabled = false;
       if (!downloadDir) { addAutoLog({ kind: "error", text: "저장 폴더를 먼저 고르십시오." }); return; }
-      const r = await window.osam.autoFetch({ onlyOne, reason: "내부 업무처리", saveDir: downloadDir });
+      const r = await window.osam.autoFetch({ onlyOne, reason: document.getElementById("reason").value, saveDir: downloadDir });
       addAutoLog({ kind: "info", text: `끝났습니다 — 받음 ${r.saved} · 건너뜀 ${r.skipped} · 실패 ${r.failed}` });
       if (r.logFile) addAutoLog({ kind: "info", text: "기록: " + r.logFile });
       document.getElementById("autoOne").disabled = false;
