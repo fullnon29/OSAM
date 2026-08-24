@@ -107,3 +107,16 @@ export function toNounEnding(text: string): string {
     .replace(/이다\.?$/, "임")
     .trim();
 }
+
+/**
+ * "자주 부담됨" 같은 보기 문구를 "자주 부담되는 (것으로)" 꼴로 바꿉니다.
+ * 서식의 보기를 그대로 문장에 넣으면 "부담됨 것으로"처럼 어색해집니다.
+ */
+export function adnominal(text: string): string {
+  const t = text.trim();
+  if (t.endsWith("않음")) return `${t.slice(0, -2)}않는`;
+  if (t.endsWith("됨")) return `${t.slice(0, -1)}되는`;
+  if (t.endsWith("음")) return `${t.slice(0, -1)}은`;
+  if (t.endsWith("함")) return `${t.slice(0, -1)}한`;
+  return t;
+}

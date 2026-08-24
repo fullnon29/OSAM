@@ -1,6 +1,14 @@
 import "server-only";
 import { getSections } from "./assessment-form";
-import { JUDGEMENT_OPENERS, joinKo, josa, tidySentence, toNounEnding, toParagraph } from "./narrative-style";
+import {
+  adnominal,
+  JUDGEMENT_OPENERS,
+  joinKo,
+  josa,
+  tidySentence,
+  toNounEnding,
+  toParagraph,
+} from "./narrative-style";
 
 export type AssessmentResponses = Record<string, string | string[] | number | undefined>;
 
@@ -226,7 +234,7 @@ function familySentences(r: AssessmentResponses): string[] {
     const burden = str(r["s7_primary_caregiver_burden"]);
     out.push(
       burden
-        ? `주 수발자는 ${josa(caregiver, "이며/며")} 수발부담은 ${josa(burden, "으로/로")} 확인됨`
+        ? `주 수발자는 ${josa(caregiver, "이며/며")} 부양부담은 ${adnominal(burden)} 것으로 확인됨`
         : `주 수발자는 ${josa(caregiver, "임/임")}`
     );
   }
