@@ -12,7 +12,7 @@
 // 기존 파일은 절대 수정하지 않습니다(과거 기록이 그 정의를 참조합니다).
 
 import type { Field, FormVersion, Section } from "./types";
-import { V2026_SECTIONS } from "./v2026";
+import { V2026_SECTIONS } from "./v2026.ts";
 
 export type { Field, FieldType, FormVersion, Section } from "./types";
 

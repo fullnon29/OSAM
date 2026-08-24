@@ -8,7 +8,7 @@
 // 웹과 로컬 프로그램이 함께 쓰는 공용 모듈이라 server-only 가드를 두지 않습니다.
 
 import Anthropic from "@anthropic-ai/sdk";
-import { getSections, CURRENT_FORM_VERSION } from "../forms";
+import { getSections, CURRENT_FORM_VERSION } from "../forms/index.ts";
 import type { Field } from "../forms/types";
 
 export type ExtractedResponses = Record<string, string | string[] | number>;
