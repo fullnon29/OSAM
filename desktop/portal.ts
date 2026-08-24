@@ -66,6 +66,7 @@ export function openPortal(saveDir: string, onEvent: (e: DownloadEvent) => void)
   // 창이 뜰 때마다 붙지 않도록 한 번만 겁니다.
   ses.removeAllListeners("will-download");
   ses.on("will-download", (_event, item) => {
+    markDownloadInRecording(item.getURL());
     const name = safeName(item.getFilename());
     const target = uniquePath(saveDir, name);
     item.setSavePath(target);
@@ -205,4 +206,107 @@ export async function dumpPortalStructure(): Promise<StructureDump[]> {
     }
   }
   return out;
+}
+
+/* ── 동작 기록 ─────────────────────────────────────────────────
+   단추를 흉내 내는 방식은 창이 여러 개 겹치는 이 화면에서 잘 깨집니다.
+   대신 일지 1건을 손으로 받으실 때 오가는 요청을 적어 두면, 그 요청을
+   어르신만 바꿔 되풀이할 수 있습니다.
+
+   값은 남기지 않고 '어떤 이름의 값이 오갔는지'만 적습니다. 어르신 성함이나
+   인정번호가 파일에 남지 않도록 하기 위함입니다. */
+
+export type RequestNote = {
+  at: string;
+  method: string;
+  /** 도메인과 경로만. 물음표 뒤 값은 이름만 남깁니다. */
+  path: string;
+  /** 주소에 붙어 있던 값의 이름들 */
+  queryKeys: string[];
+  /** 보낸 본문에 있던 값의 이름들 */
+  bodyKeys: string[];
+  /** 파일 내려받기로 이어진 요청인지 */
+  isDownload?: boolean;
+};
+
+let recording = false;
+let notes: RequestNote[] = [];
+
+/** 값은 버리고 이름만 남깁니다. */
+function keysOf(query: string): string[] {
+  if (!query) return [];
+  return [...new URLSearchParams(query).keys()];
+}
+
+function bodyKeys(details: Electron.OnBeforeRequestListenerDetails): string[] {
+  const data = details.uploadData;
+  if (!data?.length) return [];
+  try {
+    const text = data
+      .map((d) => (d.bytes ? Buffer.from(d.bytes).toString("utf8") : ""))
+      .join("")
+      .slice(0, 20000);
+    if (text.trim().startsWith("{")) return Object.keys(JSON.parse(text) as object);
+    return [...new URLSearchParams(text).keys()];
+  } catch {
+    return ["(읽지 못함)"];
+  }
+}
+
+/** 요청 기록을 시작합니다. 일지 1건을 손으로 받아 주시면 됩니다. */
+export function startRecording(): void {
+  const ses = session.fromPartition(PARTITION);
+  notes = [];
+  recording = true;
+
+  ses.webRequest.onBeforeRequest({ urls: ["<all_urls>"] }, (details, callback) => {
+    if (recording) {
+      try {
+        const url = new URL(details.url);
+        // 그림·글꼴·스타일은 자동화와 무관하니 적지 않습니다.
+        if (!/\.(png|jpe?g|gif|svg|css|woff2?|ico)(\?|$)/i.test(url.pathname)) {
+          notes.push({
+            at: new Date().toISOString(),
+            method: details.method,
+            path: `${url.origin}${url.pathname}`,
+            queryKeys: keysOf(url.search.replace(/^\?/, "")),
+            bodyKeys: bodyKeys(details),
+          });
+        }
+      } catch {
+        /* 주소를 읽지 못하면 건너뜁니다. */
+      }
+    }
+    callback({});
+  });
+}
+
+/** 기록을 멈추고 결과를 돌려줍니다. */
+export function stopRecording(): RequestNote[] {
+  recording = false;
+  const ses = session.fromPartition(PARTITION);
+  ses.webRequest.onBeforeRequest(null);
+  return notes;
+}
+
+export function isRecording(): boolean {
+  return recording;
+}
+
+/** 파일 내려받기가 일어나면 그 자리에 표시를 남깁니다. */
+export function markDownloadInRecording(url: string): void {
+  if (!recording) return;
+  try {
+    const u = new URL(url);
+    notes.push({
+      at: new Date().toISOString(),
+      method: "DOWNLOAD",
+      path: `${u.origin}${u.pathname}`,
+      queryKeys: keysOf(u.search.replace(/^\?/, "")),
+      bodyKeys: [],
+      isDownload: true,
+    });
+  } catch {
+    /* 무시 */
+  }
 }

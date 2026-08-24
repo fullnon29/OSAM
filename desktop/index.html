@@ -42,6 +42,7 @@
       <button id="dlPick">저장 폴더 선택</button>
       <button id="portal" class="primary" disabled>포털 열기</button>
       <button id="portalDump">화면 구조 저장</button>
+      <button id="recToggle">동작 기록 시작</button>
       <button id="portalClear">로그인 흔적 지우기</button>
     </div>
     <div class="path" id="dlPath">저장 폴더가 선택되지 않았습니다.</div>
@@ -102,6 +103,26 @@
       log.textContent = r.saved
         ? "화면 구조를 저장했습니다 (" + r.frames + "개 화면): " + r.saved
         : "포털 창이 열려 있지 않습니다.";
+    };
+
+    let recording = false;
+    document.getElementById("recToggle").onclick = async () => {
+      if (!downloadDir) return;
+      const btn = document.getElementById("recToggle");
+      const log = document.getElementById("dlLog");
+      if (!recording) {
+        await window.osam.recordStart();
+        recording = true;
+        btn.textContent = "동작 기록 중지";
+        log.textContent = "기록 중입니다. 일지 1건을 평소대로 받아 주십시오 (양식 인쇄 → 사유 확인 → PDF).";
+      } else {
+        const r = await window.osam.recordStop(downloadDir);
+        recording = false;
+        btn.textContent = "동작 기록 시작";
+        log.textContent = r.saved
+          ? "동작 " + r.count + "건을 기록했습니다: " + r.saved
+          : "기록된 동작이 없습니다.";
+      }
     };
 
     document.getElementById("portalClear").onclick = async () => {

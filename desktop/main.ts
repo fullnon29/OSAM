@@ -9,7 +9,15 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { findDocuments, importDocuments } from "../src/lib/documents/import-runner";
-import { clearPortalSession, dumpPortalStructure, isPortalOpen, openPortal } from "./portal";
+import {
+  clearPortalSession,
+  dumpPortalStructure,
+  isPortalOpen,
+  isRecording,
+  openPortal,
+  startRecording,
+  stopRecording,
+} from "./portal";
 
 let db: SupabaseClient | null = null;
 let cancelRequested = false;
@@ -152,3 +160,26 @@ ipcMain.handle("dump-portal", async (_e, saveDir: string) => {
   );
   return { saved: target, frames: dumps.length };
 });
+
+/**
+ * 일지 1건을 손으로 받으실 때 오가는 요청을 적어 둡니다.
+ *
+ * 값은 남기지 않고 이름만 적습니다. 이 기록으로 자동 받기를 만든 뒤에는
+ * 쓰지 않습니다.
+ */
+ipcMain.handle("record-start", () => {
+  startRecording();
+  return { recording: true };
+});
+
+ipcMain.handle("record-stop", (_e, saveDir: string) => {
+  const notes = stopRecording();
+  if (!notes.length) return { saved: null, count: 0 };
+
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  const target = path.join(saveDir, `동작기록-${stamp}.json`);
+  writeFileSync(target, JSON.stringify(notes, null, 1), "utf8");
+  return { saved: target, count: notes.length };
+});
+
+ipcMain.handle("record-state", () => isRecording());

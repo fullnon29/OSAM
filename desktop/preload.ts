@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("osam", {
   openPortal: (saveDir: string) => ipcRenderer.invoke("open-portal", saveDir),
   clearPortalSession: () => ipcRenderer.invoke("clear-portal-session"),
   dumpPortal: (saveDir: string) => ipcRenderer.invoke("dump-portal", saveDir),
+  recordStart: () => ipcRenderer.invoke("record-start"),
+  recordStop: (saveDir: string) => ipcRenderer.invoke("record-stop", saveDir),
   onPortalDownload: (cb: (e: unknown) => void) => {
     ipcRenderer.on("portal-download", (_e, payload) => cb(payload));
   },
