@@ -41,6 +41,7 @@
     <div class="row">
       <button id="dlPick">저장 폴더 선택</button>
       <button id="portal" class="primary" disabled>포털 열기</button>
+      <button id="portalDump">화면 구조 저장</button>
       <button id="portalClear">로그인 흔적 지우기</button>
     </div>
     <div class="path" id="dlPath">저장 폴더가 선택되지 않았습니다.</div>
@@ -92,6 +93,15 @@
     document.getElementById("portal").onclick = async () => {
       if (!downloadDir) return;
       await window.osam.openPortal(downloadDir);
+    };
+
+    document.getElementById("portalDump").onclick = async () => {
+      if (!downloadDir) return;
+      const r = await window.osam.dumpPortal(downloadDir);
+      const log = document.getElementById("dlLog");
+      log.textContent = r.saved
+        ? "화면 구조를 저장했습니다 (" + r.frames + "개 화면): " + r.saved
+        : "포털 창이 열려 있지 않습니다.";
     };
 
     document.getElementById("portalClear").onclick = async () => {

@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("osam", {
   chooseDownloadFolder: () => ipcRenderer.invoke("choose-download-folder"),
   openPortal: (saveDir: string) => ipcRenderer.invoke("open-portal", saveDir),
   clearPortalSession: () => ipcRenderer.invoke("clear-portal-session"),
+  dumpPortal: (saveDir: string) => ipcRenderer.invoke("dump-portal", saveDir),
   onPortalDownload: (cb: (e: unknown) => void) => {
     ipcRenderer.on("portal-download", (_e, payload) => cb(payload));
   },

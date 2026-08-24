@@ -5,11 +5,11 @@
 // 읽고 판별하고 올리는 과정은 웹앱·명령어 스크립트와 같은 코드를 씁니다.
 
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { findDocuments, importDocuments } from "../src/lib/documents/import-runner";
-import { clearPortalSession, isPortalOpen, openPortal } from "./portal";
+import { clearPortalSession, dumpPortalStructure, isPortalOpen, openPortal } from "./portal";
 
 let db: SupabaseClient | null = null;
 let cancelRequested = false;
@@ -127,4 +127,28 @@ ipcMain.handle("portal-open?", () => isPortalOpen());
 ipcMain.handle("clear-portal-session", async () => {
   await clearPortalSession();
   return { cleared: true };
+});
+
+/**
+ * 포털 화면의 뼈대를 파일로 남깁니다.
+ *
+ * 자동화를 만들려면 단추와 표의 실제 이름이 필요한데, 화면에는 어르신
+ * 성함과 인정번호가 함께 떠 있습니다. 글자는 길이로만 남기고 뼈대만 담습니다.
+ */
+ipcMain.handle("dump-portal", async (_e, saveDir: string) => {
+  const dumps = await dumpPortalStructure();
+  if (!dumps.length) return { saved: null, frames: 0 };
+
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  const target = path.join(saveDir, `화면구조-${stamp}.json`);
+  writeFileSync(
+    target,
+    JSON.stringify(
+      dumps.map((d) => ({ url: d.url, title: d.title, dom: JSON.parse(d.json).dom })),
+      null,
+      1
+    ),
+    "utf8"
+  );
+  return { saved: target, frames: dumps.length };
 });

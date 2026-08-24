@@ -124,3 +124,85 @@ export async function clearPortalSession(): Promise<void> {
   const ses = session.fromPartition(PARTITION);
   await ses.clearStorageData();
 }
+
+/* ── 화면 구조 살펴보기 ────────────────────────────────────────
+   자동화를 만들려면 단추와 표의 실제 이름(id·class)을 알아야 합니다.
+   그런데 화면에는 어르신 163분의 성함과 인정번호가 떠 있습니다.
+   그래서 뼈대만 뽑고 글자는 길이로만 남깁니다. 개인정보는 나가지 않습니다. */
+
+/** 화면 안에서 실행되어 구조만 추려 내는 코드. */
+const DUMP_SCRIPT = `(() => {
+  const KEEP_ATTRS = ["id", "name", "class", "type", "value", "title", "alt", "href", "onclick"];
+  // 개인정보가 들어갈 수 있는 값은 길이만 남깁니다.
+  const redact = (s) => {
+    if (!s) return "";
+    const t = String(s).trim();
+    if (!t) return "";
+    // 한글 이름·인정번호·생년월일처럼 보이면 가립니다.
+    if (/[가-힣]{2,4}\s*$/.test(t) && t.length <= 6) return "《이름?" + t.length + "》";
+    if (/L\d{8,}/.test(t)) return "《인정번호》";
+    if (/\d{4}-\d{2}-\d{2}/.test(t)) return t.replace(/\d{4}-\d{2}-\d{2}/g, "《날짜》");
+    if (t.length > 24) return "《글자" + t.length + "》";
+    return t;
+  };
+  const walk = (el, depth) => {
+    if (depth > 14) return null;
+    const attrs = {};
+    for (const a of KEEP_ATTRS) {
+      const v = el.getAttribute && el.getAttribute(a);
+      if (v) attrs[a] = a === "value" || a === "title" || a === "alt" ? redact(v) : v;
+    }
+    const kids = [];
+    for (const child of el.children) {
+      const c = walk(child, depth + 1);
+      if (c) kids.push(c);
+    }
+    const own = [...el.childNodes]
+      .filter((n) => n.nodeType === 3)
+      .map((n) => redact(n.nodeValue))
+      .filter(Boolean)
+      .join(" ");
+    // 같은 모양이 줄줄이 반복되는 표는 앞의 세 줄만 남깁니다.
+    const node = { tag: el.tagName.toLowerCase(), ...attrs };
+    if (own) node.text = own;
+    if (kids.length) {
+      if (el.tagName === "TBODY" && kids.length > 3) {
+        node.children = kids.slice(0, 3);
+        node.repeated = kids.length;
+      } else {
+        node.children = kids;
+      }
+    }
+    return node;
+  };
+  return JSON.stringify({ url: location.href, title: document.title, dom: walk(document.body, 0) });
+})()`;
+
+export type StructureDump = { url: string; title: string; json: string };
+
+/**
+ * 지금 열려 있는 포털 창(그 안의 프레임 포함)의 구조를 뽑습니다.
+ * 자동화를 만들 때 한 번만 쓰고, 만든 뒤에는 쓰지 않습니다.
+ */
+export async function dumpPortalStructure(): Promise<StructureDump[]> {
+  if (!portalWindow || portalWindow.isDestroyed()) return [];
+
+  const out: StructureDump[] = [];
+  const windows = BrowserWindow.getAllWindows().filter(
+    (w) => !w.isDestroyed() && w.webContents.session === session.fromPartition(PARTITION)
+  );
+
+  for (const win of windows) {
+    const frames = [win.webContents.mainFrame, ...win.webContents.mainFrame.framesInSubtree];
+    for (const frame of frames) {
+      try {
+        const json = (await frame.executeJavaScript(DUMP_SCRIPT, true)) as string;
+        const parsed = JSON.parse(json) as { url: string; title: string };
+        out.push({ url: parsed.url, title: parsed.title, json });
+      } catch {
+        // 다른 출처의 프레임은 읽을 수 없습니다. 건너뜁니다.
+      }
+    }
+  }
+  return out;
+}
