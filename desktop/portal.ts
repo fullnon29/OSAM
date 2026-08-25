@@ -18,7 +18,7 @@ import { extractPdfText } from "../src/lib/documents/extract-text";
 import {
   STEP_CLICK_PRINT,
   STEP_CLOSE,
-  STEP_EXPORT_PDF,
+  stepExportPdf,
   STEP_LIST_LOGS,
   STEP_PROBE,
   stepRecordReady,
@@ -591,14 +591,31 @@ export function runStep(script: string): Promise<StepResult> {
  * 성공이라 그대로 두면 빈 종이 94장을 받고도 모르게 됩니다. 인정번호가
  * 들어 있는지로 판단합니다.
  */
-async function looksFilled(file: string): Promise<{ filled: boolean; ltcNo: string | null }> {
+export async function looksFilled(
+  file: string,
+  expectedYmd: string
+): Promise<{ filled: boolean; ltcNo: string | null; rightOne: boolean }> {
   try {
     const { text } = await extractPdfText(readFileSync(file));
     const m = text.match(/L\d{10}/);
-    return { filled: !!m, ltcNo: m ? m[0] : null };
+    // 받은 것이 정말 그 일지인지 봅니다. 미리보기가 앞 건 것이면 겉보기에는
+    // 성공이라 그대로 두면 같은 일지를 몇 백 장 받고도 모르게 됩니다.
+    //
+    // 적는 모양은 화면마다 다릅니다. 2026-08-12 · 2026.8.12 · 2026년 8월 12일 ·
+    // 20260812 를 모두 같은 날로 봅니다.
+    const want = expectedYmd.replace(/[^0-9]/g, "");
+    const rightOne =
+      want.length < 8 ||
+      new RegExp(
+        want.slice(0, 4) +
+          "\\D{0,3}0?" + Number(want.slice(4, 6)) +
+          "\\D{0,3}0?" + Number(want.slice(6, 8)) +
+          "(?!\\d)"
+      ).test(text);
+    return { filled: !!m, ltcNo: m ? m[0] : null, rightOne };
   } catch {
     // 읽지 못하면 판단하지 않습니다. 받은 파일은 그대로 둡니다.
-    return { filled: true, ltcNo: null };
+    return { filled: true, ltcNo: null, rightOne: true };
   }
 }
 
@@ -623,6 +640,9 @@ export async function runAutomation(
   // 시간만 버리고 기록만 지저분해집니다.
   let consecutiveFailures = 0;
   const giveUpAfter = 3;
+
+  // 엉뚱한 일지가 내려온 횟수. 잇달으면 미리보기가 멎은 것이라 멈춥니다.
+  let wrongFile = 0;
 
   const probe = await run(STEP_PROBE);
   if (!probe.ok) {
@@ -747,27 +767,57 @@ export async function runAutomation(
       onLog({ kind: "info", text: `열람 사유 '${warn.recordedAs}' 로 기록됩니다.` });
       await wait(2500);
 
-      const exported = await run(STEP_EXPORT_PDF);
+      // 미리보기가 이 일지로 바뀔 때까지 기다립니다. 앞 건의 미리보기가
+      // 남아 있는 동안 누르면 같은 일지를 다시 받게 됩니다.
+      let exported = await run(stepExportPdf(row.wrtDt));
+      for (let tries = 0; tries < 12 && !exported.ok && exported.waiting; tries++) {
+        await wait(500);
+        exported = await run(stepExportPdf(row.wrtDt));
+      }
       if (!exported.ok) {
         result.failed++;
         onLog({ kind: "error", text: `${i + 1}/${total} · PDF 를 내려받지 못했습니다: ${exported.reason}` });
         await run(STEP_CLOSE);
+        closeWindowsOpenedAfter(baseline);
         if (onlyOne) return result;
         continue;
       }
 
       const file = await waitForDownload(30000);
       if (file) {
-        const check = await looksFilled(file);
-        if (check.filled) {
-          result.saved++;
-          onLog({ kind: "ok", text: `${i + 1}/${total} · ${row.wrtDt} 받음` });
-        } else {
+        const check = await looksFilled(file, row.wrtDt);
+        if (!check.filled) {
           result.failed++;
           onLog({
             kind: "error",
             text: `${i + 1}/${total} · ${row.wrtDt} 빈 서식이 내려왔습니다. 자료가 채워지기 전에 인쇄된 것입니다.`,
           });
+        } else if (!check.rightOne) {
+          // 다른 일지가 내려왔습니다. 한 번 어긋나면 다음도 줄줄이 어긋나므로
+          // 여기서 멈춥니다. 잘못 받은 것을 몇 백 장 쌓아 두는 것보다 낫습니다.
+          result.failed++;
+          wrongFile++;
+          onLog({
+            kind: "error",
+            text: `${i + 1}/${total} · ${row.wrtDt} 을 받으려 했는데 다른 일지가 내려왔습니다: ${file}`,
+          });
+          if (wrongFile >= 2) {
+            onLog({
+              kind: "error",
+              text:
+                "다른 일지가 잇달아 내려와 멈춥니다. 인쇄 미리보기 창이 닫히지 않고 남아 있는 것입니다. " +
+                "포털 창을 모두 닫고 다시 여신 뒤 시도해 주십시오. 지금까지 받은 파일 중 " +
+                "잘못된 것이 있는지 확인이 필요합니다.",
+            });
+            result.stopped = true;
+            await run(STEP_CLOSE);
+            closeWindowsOpenedAfter(baseline);
+            return result;
+          }
+        } else {
+          wrongFile = 0;
+          result.saved++;
+          onLog({ kind: "ok", text: `${i + 1}/${total} · ${row.wrtDt} 받음` });
         }
       } else {
         result.failed++;

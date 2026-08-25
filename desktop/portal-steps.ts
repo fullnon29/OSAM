@@ -443,21 +443,75 @@ export function stepConfirmWarning(reason: string): string {
 }
 
 /** 인쇄 뷰어에서 PDF 내려받기를 누릅니다. */
-export const STEP_EXPORT_PDF = `(() => { try {
-  ${HELPERS}
-  // 뷰어는 별도 문서(iframe)로 들어옵니다. 그 안의 PDF 단추를 찾습니다.
-  const frames = document.querySelectorAll("iframe");
-  for (const fr of frames) {
-    let doc = null;
-    try { doc = fr.contentDocument; } catch (e) { continue; }
-    if (!doc) continue;
-    const btn = doc.querySelector("#btnPdf, .btnPdf, [title*='PDF'], [alt*='PDF'], img[src*='pdf']");
-    if (btn) { btn.click(); return JSON.stringify({ ok: true, where: "iframe" }); }
-  }
-  const btn = document.querySelector("#btnPdf, .btnPdf, [title*='PDF'], [alt*='PDF'], img[src*='pdf']");
-  if (btn) { btn.click(); return JSON.stringify({ ok: true, where: "page" }); }
-  return JSON.stringify({ ok: false, reason: "PDF 단추를 찾지 못했습니다." });
-} catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
+export function stepExportPdf(expectedYmd: string): string {
+  return `(() => { try {
+    ${HELPERS}
+    // 미리보기에 뜬 것이 '지금 받으려는 그 일지'인지 확인하고 누릅니다.
+    //
+    // 그냥 눈에 띄는 PDF 단추를 누르면 안 됩니다. 앞 건의 미리보기가 닫히지
+    // 않고 남아 있으면 그것을 눌러 같은 일지를 몇 번이고 다시 받게 됩니다.
+    // 화면에는 다음 일지를 여는 것처럼 보이므로 알아채기도 어렵습니다
+    // (실제로 465건을 같은 어르신 같은 날짜로 받았습니다).
+    //
+    // 그래서 미리보기 글에 그 일지의 급여제공일이 들어 있는지 봅니다.
+    //
+    // 적는 모양이 화면마다 달라 너그럽게 찾습니다. 2026-08-12 · 2026.8.12 ·
+    // 2026년 8월 12일 · 20260812 를 모두 같은 날로 봅니다. 여기서 깐깐하게
+    // 굴면 멀쩡한 화면에서도 한 건도 못 받게 됩니다.
+    const want = ${JSON.stringify(expectedYmd)}.replace(/[^0-9]/g, "");
+    const BUTTON = "#btnPdf, .btnPdf, [title*='PDF'], [alt*='PDF'], img[src*='pdf']";
+
+    const datePattern = (ymd) => {
+      if (ymd.length < 8) return null;
+      const y = ymd.slice(0, 4);
+      const m = String(Number(ymd.slice(4, 6)));
+      const d = String(Number(ymd.slice(6, 8)));
+      return new RegExp(y + "\\\\D{0,3}0?" + m + "\\\\D{0,3}0?" + d + "(?!\\\\d)");
+    };
+    const wanted = datePattern(want);
+
+    const textOf = (doc) => {
+      try {
+        const body = doc.body;
+        return body ? String(body.innerText || body.textContent || "") : "";
+      } catch (e) { return ""; }
+    };
+
+    let seen = 0;
+    let mismatched = 0;
+
+    const viewers = [];
+    document.querySelectorAll("iframe").forEach((fr) => {
+      let doc = null;
+      try { doc = fr.contentDocument; } catch (e) { return; }
+      if (!doc) return;
+      const btn = doc.querySelector(BUTTON);
+      if (btn) viewers.push({ doc: doc, btn: btn, where: "iframe" });
+    });
+    const own = document.querySelector(BUTTON);
+    if (own) viewers.push({ doc: document, btn: own, where: "page" });
+
+    for (const v of viewers) {
+      seen++;
+      // 날짜를 못 읽는 미리보기(그림으로만 그리는 경우)는 막지 않습니다.
+      const text = textOf(v.doc);
+      const readable = !!text && !!wanted;
+      if (readable && !wanted.test(text)) { mismatched++; continue; }
+      v.btn.click();
+      return JSON.stringify({ ok: true, where: v.where, checked: readable });
+    }
+
+    if (mismatched) {
+      return JSON.stringify({
+        ok: false,
+        waiting: true,
+        reason: "미리보기에 아직 이 일지가 뜨지 않았습니다 (앞 건의 미리보기가 남아 있습니다).",
+        viewers: seen,
+      });
+    }
+    return JSON.stringify({ ok: false, reason: "PDF 단추를 찾지 못했습니다.", viewers: seen });
+  } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
+}
 
 /**
  * 기록창만 닫습니다.
