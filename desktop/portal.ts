@@ -737,12 +737,14 @@ export async function runAutomation(
         continue;
       }
 
-      // 인쇄하기 전에 앞 건의 미리보기를 치웁니다. 남아 있으면 새 미리보기가
-      // 아예 뜨지 않고 앞 건이 그대로 보입니다.
-      await run(STEP_CLOSE_PREVIEW);
-
       const print = await run(STEP_CLICK_PRINT);
       if (print.ok) onLog({ kind: "info", text: `「${print.pressed}」를 눌렀습니다.` });
+      // 인쇄를 누를 때 포털이 무엇을 물었는지 남깁니다. 물어보는 창은
+      // '아니오'로 답하게 되어 있어, 여기서 조용히 막히면 미리보기가 아예
+      // 뜨지 않는데도 까닭을 알 수 없습니다.
+      for (const alert of (print.alerts as string[]) ?? []) {
+        onLog({ kind: "warn", text: `포털 알림 — ${alert}` });
+      }
       if (!print.ok) {
         result.failed++;
         onLog({ kind: "error", text: `${i + 1}/${total} · 양식 인쇄를 누르지 못했습니다: ${print.reason}` });
@@ -796,10 +798,14 @@ export async function runAutomation(
         onLog({
           kind: "info",
           text:
-            `  찾던 날짜 ${expected.join(" 또는 ")} · 미리보기에 적힌 날짜 ` +
+            `  찾던 날짜 ${[...new Set(expected)].join(" 또는 ")} · 미리보기에 적힌 날짜 ` +
             (saw.length ? saw.join(", ") : "(읽지 못함)") +
             ` · 미리보기 ${exported.viewers ?? 0}개`,
         });
+        // 미리보기를 하나도 못 찾았으면 화면에 무엇이 있었는지 남깁니다.
+        for (const frame of (exported.frames as string[]) ?? []) {
+          onLog({ kind: "info", text: `  틀: ${frame}` });
+        }
         await run(STEP_CLOSE_PREVIEW);
         await run(STEP_CLOSE);
         closeWindowsOpenedAfter(baseline);

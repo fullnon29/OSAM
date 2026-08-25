@@ -286,9 +286,12 @@ export const STEP_CLICK_PRINT = `(() => { try {
   ${HELPERS}
   for (const label of ["인쇄", "양식 인쇄"]) {
     const r = clickByText(label);
-    if (r.ok) return JSON.stringify({ ok: true, pressed: label, path: r.path });
+    // 누른 뒤에 뜬 알림도 함께 돌려줍니다. 물어보는 창은 '아니오'로 답하게
+    // 되어 있어, 여기서 조용히 막히면 미리보기가 뜨지 않는데도 성공으로
+    // 보입니다. 무엇을 물었는지는 남아야 합니다.
+    if (r.ok) return JSON.stringify({ ok: true, pressed: label, path: r.path, alerts: takeAlerts() });
   }
-  return JSON.stringify({ ok: false, reason: "인쇄 단추를 찾지 못했습니다." });
+  return JSON.stringify({ ok: false, reason: "인쇄 단추를 찾지 못했습니다.", alerts: takeAlerts() });
 } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 
 /**
@@ -523,7 +526,35 @@ export function stepExportPdf(expectedYmds: string[]): string {
         sawDates: sawDates,
       });
     }
-    return JSON.stringify({ ok: false, reason: "PDF 단추를 찾지 못했습니다.", viewers: seen });
+    // 미리보기를 하나도 못 찾았습니다. 무엇이 있었는지 적어 둡니다. 이것이
+    // 없으면 "미리보기가 안 떴다"와 "우리 선택자가 못 알아본다"를 가릴 수
+    // 없어, 화면을 보지 못하는 채로 또 짐작하게 됩니다.
+    const frames = [];
+    document.querySelectorAll("iframe").forEach((fr) => {
+      let doc = null;
+      try { doc = fr.contentDocument; } catch (e) { frames.push("남의틀"); return; }
+      if (!doc) { frames.push("빈틀"); return; }
+      const src = String(fr.getAttribute("src") || "").slice(0, 60);
+      // 그 틀에 단추처럼 생긴 것이 무엇이 있는지 몇 개만 봅니다.
+      const marks = [];
+      try {
+        doc.querySelectorAll("img, button, a, input[type=button], input[type=image]").forEach((el) => {
+          if (marks.length >= 6) return;
+          const tag = el.tagName.toLowerCase();
+          const hint = String(el.id || el.className || el.getAttribute("title") ||
+                              el.getAttribute("alt") || el.getAttribute("src") || "").slice(0, 30);
+          if (hint) marks.push(tag + ":" + hint);
+        });
+      } catch (e) {}
+      frames.push((src || "(src없음)") + " → " + (marks.length ? marks.join(" / ") : "단추같은것없음"));
+    });
+
+    return JSON.stringify({
+      ok: false,
+      reason: "PDF 단추를 찾지 못했습니다.",
+      viewers: seen,
+      frames: frames,
+    });
   } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 }
 
@@ -534,12 +565,12 @@ export function stepExportPdf(expectedYmds: string[]): string {
  * 정리해도 남아 있고, 남아 있으면 다음 일지를 인쇄해도 앞 건이 그대로
  * 보입니다. 한 건이 끝날 때마다 이것을 불러 비워야 합니다.
  *
- * 순서대로 시도합니다.
- *   1) 미리보기 안의 「닫기」 단추 — 포털이 스스로 치우게 하는 것이 가장 곱습니다
- *   2) 그것이 없으면 틀을 빈 쪽으로 돌립니다(about:blank)
+ * 미리보기 안의 「닫기」 단추만 누릅니다. 사람이 하는 것과 같은 동작입니다.
  *
- * 틀을 아주 없애지는 않습니다. 포털이 그 자리를 다시 쓰려 할 때 없으면
- * 화면이 깨지기 때문입니다.
+ * 한때 닫기가 없으면 틀을 about:blank 로 돌리게 해 보았는데, 그렇게 하면
+ * 포털이 그 틀을 다시 채우지 못해 미리보기가 아예 뜨지 않았습니다. 첫 건부터
+ * "PDF 단추를 찾지 못했습니다 · 미리보기 0개" 로 멎었습니다. 우리가 만들지
+ * 않은 화면을 우리 마음대로 비우면 안 됩니다.
  */
 export const STEP_CLOSE_PREVIEW = `(() => { try {
   ${HELPERS}
@@ -555,15 +586,8 @@ export const STEP_CLOSE_PREVIEW = `(() => { try {
     if (!doc.querySelector(BUTTON)) return;
 
     const closeBtn = doc.querySelector(CLOSE);
-    if (closeBtn) {
-      try { closeBtn.click(); cleared.push("닫기"); return; } catch (e) {}
-    }
-    try {
-      fr.setAttribute("src", "about:blank");
-      cleared.push("비움");
-    } catch (e) {
-      cleared.push("치우지못함");
-    }
+    if (!closeBtn) { cleared.push("닫기없음"); return; }
+    try { closeBtn.click(); cleared.push("닫기"); } catch (e) { cleared.push("누르지못함"); }
   });
 
   return JSON.stringify({ ok: true, cleared: cleared, alerts: takeAlerts() });
