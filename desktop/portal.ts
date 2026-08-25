@@ -18,6 +18,7 @@ import { extractPdfText } from "../src/lib/documents/extract-text";
 import {
   STEP_CLICK_PRINT,
   STEP_CLOSE,
+  STEP_CLOSE_PREVIEW,
   stepExportPdf,
   STEP_LIST_LOGS,
   STEP_PROBE,
@@ -593,7 +594,7 @@ export function runStep(script: string): Promise<StepResult> {
  */
 export async function looksFilled(
   file: string,
-  expectedYmd: string
+  expectedYmds: string[]
 ): Promise<{ filled: boolean; ltcNo: string | null; rightOne: boolean }> {
   try {
     const { text } = await extractPdfText(readFileSync(file));
@@ -603,15 +604,19 @@ export async function looksFilled(
     //
     // 적는 모양은 화면마다 다릅니다. 2026-08-12 · 2026.8.12 · 2026년 8월 12일 ·
     // 20260812 를 모두 같은 날로 봅니다.
-    const want = expectedYmd.replace(/[^0-9]/g, "");
+    // 인쇄물에 작성일자가 찍히는지 방문일자가 찍히는지는 화면마다 다릅니다.
+    // 둘 중 하나라도 있으면 그 일지로 봅니다.
+    const wants = expectedYmds.map((y) => y.replace(/[^0-9]/g, "")).filter((y) => y.length >= 8);
     const rightOne =
-      want.length < 8 ||
-      new RegExp(
-        want.slice(0, 4) +
-          "\\D{0,3}0?" + Number(want.slice(4, 6)) +
-          "\\D{0,3}0?" + Number(want.slice(6, 8)) +
-          "(?!\\d)"
-      ).test(text);
+      !wants.length ||
+      wants.some((want) =>
+        new RegExp(
+          want.slice(0, 4) +
+            "\\D{0,3}0?" + Number(want.slice(4, 6)) +
+            "\\D{0,3}0?" + Number(want.slice(6, 8)) +
+            "(?!\\d)"
+        ).test(text)
+      );
     return { filled: !!m, ltcNo: m ? m[0] : null, rightOne };
   } catch {
     // 읽지 못하면 판단하지 않습니다. 받은 파일은 그대로 둡니다.
@@ -681,7 +686,7 @@ export async function runAutomation(
     await wait(700);
 
     const logs = await run(STEP_LIST_LOGS);
-    const rows = (logs.rows as { i: number; wrtDt: string; status: string }[]) ?? [];
+    const rows = (logs.rows as { i: number; wrtDt: string; visDt: string; status: string }[]) ?? [];
     if (!logs.ok || !rows.length) {
       result.skipped++;
       onLog({ kind: "info", text: `${i + 1}/${total} · 일지가 없어 건너뜁니다.` });
@@ -732,6 +737,10 @@ export async function runAutomation(
         continue;
       }
 
+      // 인쇄하기 전에 앞 건의 미리보기를 치웁니다. 남아 있으면 새 미리보기가
+      // 아예 뜨지 않고 앞 건이 그대로 보입니다.
+      await run(STEP_CLOSE_PREVIEW);
+
       const print = await run(STEP_CLICK_PRINT);
       if (print.ok) onLog({ kind: "info", text: `「${print.pressed}」를 눌렀습니다.` });
       if (!print.ok) {
@@ -769,14 +778,29 @@ export async function runAutomation(
 
       // 미리보기가 이 일지로 바뀔 때까지 기다립니다. 앞 건의 미리보기가
       // 남아 있는 동안 누르면 같은 일지를 다시 받게 됩니다.
-      let exported = await run(stepExportPdf(row.wrtDt));
+      //
+      // 인쇄물에 작성일자가 찍히는지 방문일자가 찍히는지는 화면마다 다릅니다.
+      // 둘 다 넘겨 하나라도 맞으면 넘어가게 합니다.
+      const expected = [row.wrtDt, row.visDt].filter(Boolean);
+      let exported = await run(stepExportPdf(expected));
       for (let tries = 0; tries < 12 && !exported.ok && exported.waiting; tries++) {
         await wait(500);
-        exported = await run(stepExportPdf(row.wrtDt));
+        exported = await run(stepExportPdf(expected));
       }
       if (!exported.ok) {
         result.failed++;
         onLog({ kind: "error", text: `${i + 1}/${total} · PDF 를 내려받지 못했습니다: ${exported.reason}` });
+        // 무엇을 보았는지 남깁니다. 이것이 없으면 앞 건이 남은 것인지
+        // 우리가 엉뚱한 날짜로 견준 것인지 알 수 없어 또 여쭤봐야 합니다.
+        const saw = (exported.sawDates as string[]) ?? [];
+        onLog({
+          kind: "info",
+          text:
+            `  찾던 날짜 ${expected.join(" 또는 ")} · 미리보기에 적힌 날짜 ` +
+            (saw.length ? saw.join(", ") : "(읽지 못함)") +
+            ` · 미리보기 ${exported.viewers ?? 0}개`,
+        });
+        await run(STEP_CLOSE_PREVIEW);
         await run(STEP_CLOSE);
         closeWindowsOpenedAfter(baseline);
         if (onlyOne) return result;
@@ -785,7 +809,7 @@ export async function runAutomation(
 
       const file = await waitForDownload(30000);
       if (file) {
-        const check = await looksFilled(file, row.wrtDt);
+        const check = await looksFilled(file, expected);
         if (!check.filled) {
           result.failed++;
           onLog({
@@ -805,7 +829,7 @@ export async function runAutomation(
             onLog({
               kind: "error",
               text:
-                "다른 일지가 잇달아 내려와 멈춥니다. 인쇄 미리보기 창이 닫히지 않고 남아 있는 것입니다. " +
+                "다른 일지가 잇달아 내려와 멈춥니다. 앞 건의 인쇄 미리보기가 치워지지 않는 것입니다. " +
                 "포털 창을 모두 닫고 다시 여신 뒤 시도해 주십시오. 지금까지 받은 파일 중 " +
                 "잘못된 것이 있는지 확인이 필요합니다.",
             });
@@ -824,6 +848,9 @@ export async function runAutomation(
         onLog({ kind: "warn", text: `${i + 1}/${total} · ${row.wrtDt} 내려받기를 기다렸지만 오지 않았습니다.` });
       }
 
+      // 미리보기를 먼저 치우고 기록창을 닫습니다. 미리보기가 남으면 다음
+      // 일지를 인쇄해도 앞 건이 그대로 보입니다.
+      await run(STEP_CLOSE_PREVIEW);
       await run(STEP_CLOSE);
       await wait(600);
 

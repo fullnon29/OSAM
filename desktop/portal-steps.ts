@@ -443,7 +443,7 @@ export function stepConfirmWarning(reason: string): string {
 }
 
 /** 인쇄 뷰어에서 PDF 내려받기를 누릅니다. */
-export function stepExportPdf(expectedYmd: string): string {
+export function stepExportPdf(expectedYmds: string[]): string {
   return `(() => { try {
     ${HELPERS}
     // 미리보기에 뜬 것이 '지금 받으려는 그 일지'인지 확인하고 누릅니다.
@@ -458,17 +458,21 @@ export function stepExportPdf(expectedYmd: string): string {
     // 적는 모양이 화면마다 달라 너그럽게 찾습니다. 2026-08-12 · 2026.8.12 ·
     // 2026년 8월 12일 · 20260812 를 모두 같은 날로 봅니다. 여기서 깐깐하게
     // 굴면 멀쩡한 화면에서도 한 건도 못 받게 됩니다.
-    const want = ${JSON.stringify(expectedYmd)}.replace(/[^0-9]/g, "");
+    //
+    // 날짜를 여럿 받습니다. 일지 목록에는 작성일자와 방문일자가 따로 있는데
+    // 인쇄물에 어느 쪽이 찍히는지는 화면마다 다릅니다. 하나만 보고 막으면
+    // 멀쩡한 미리보기를 거부하게 됩니다. 그중 하나라도 맞으면 누릅니다.
     const BUTTON = "#btnPdf, .btnPdf, [title*='PDF'], [alt*='PDF'], img[src*='pdf']";
 
-    const datePattern = (ymd) => {
+    const datePattern = (raw) => {
+      const ymd = String(raw == null ? "" : raw).replace(/[^0-9]/g, "");
       if (ymd.length < 8) return null;
       const y = ymd.slice(0, 4);
       const m = String(Number(ymd.slice(4, 6)));
       const d = String(Number(ymd.slice(6, 8)));
       return new RegExp(y + "\\\\D{0,3}0?" + m + "\\\\D{0,3}0?" + d + "(?!\\\\d)");
     };
-    const wanted = datePattern(want);
+    const wanted = ${JSON.stringify(expectedYmds)}.map(datePattern).filter(Boolean);
 
     const textOf = (doc) => {
       try {
@@ -491,12 +495,21 @@ export function stepExportPdf(expectedYmd: string): string {
     const own = document.querySelector(BUTTON);
     if (own) viewers.push({ doc: document, btn: own, where: "page" });
 
+    // 미리보기에 무슨 날짜가 적혀 있었는지 모아 둡니다. 막기만 하고 무엇을
+    // 보았는지 말하지 않으면, 앞 건이 남은 것인지 우리가 엉뚱한 날짜로
+    // 견준 것인지 알 수 없어 또 여쭤봐야 합니다.
+    const sawDates = [];
+
     for (const v of viewers) {
       seen++;
       // 날짜를 못 읽는 미리보기(그림으로만 그리는 경우)는 막지 않습니다.
       const text = textOf(v.doc);
-      const readable = !!text && !!wanted;
-      if (readable && !wanted.test(text)) { mismatched++; continue; }
+      const readable = !!text && wanted.length > 0;
+      if (readable) {
+        const found = text.match(/20\\d{2}\\D{0,3}\\d{1,2}\\D{0,3}\\d{1,2}/g) || [];
+        for (const f of found.slice(0, 4)) if (sawDates.indexOf(f) < 0) sawDates.push(f);
+        if (!wanted.some((re) => re.test(text))) { mismatched++; continue; }
+      }
       v.btn.click();
       return JSON.stringify({ ok: true, where: v.where, checked: readable });
     }
@@ -505,13 +518,56 @@ export function stepExportPdf(expectedYmd: string): string {
       return JSON.stringify({
         ok: false,
         waiting: true,
-        reason: "미리보기에 아직 이 일지가 뜨지 않았습니다 (앞 건의 미리보기가 남아 있습니다).",
+        reason: "미리보기에 이 일지가 아직 뜨지 않았습니다.",
         viewers: seen,
+        sawDates: sawDates,
       });
     }
     return JSON.stringify({ ok: false, reason: "PDF 단추를 찾지 못했습니다.", viewers: seen });
   } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 }
+
+/**
+ * 인쇄 미리보기를 치웁니다.
+ *
+ * 미리보기는 새 창이 아니라 화면 안의 틀(iframe)로 들어옵니다. 그래서 창을
+ * 정리해도 남아 있고, 남아 있으면 다음 일지를 인쇄해도 앞 건이 그대로
+ * 보입니다. 한 건이 끝날 때마다 이것을 불러 비워야 합니다.
+ *
+ * 순서대로 시도합니다.
+ *   1) 미리보기 안의 「닫기」 단추 — 포털이 스스로 치우게 하는 것이 가장 곱습니다
+ *   2) 그것이 없으면 틀을 빈 쪽으로 돌립니다(about:blank)
+ *
+ * 틀을 아주 없애지는 않습니다. 포털이 그 자리를 다시 쓰려 할 때 없으면
+ * 화면이 깨지기 때문입니다.
+ */
+export const STEP_CLOSE_PREVIEW = `(() => { try {
+  ${HELPERS}
+  const BUTTON = "#btnPdf, .btnPdf, [title*='PDF'], [alt*='PDF'], img[src*='pdf']";
+  const CLOSE = "#btnClose, .btnClose, #btnExit, [title*='닫기'], [alt*='닫기'], [title*='Close'], [alt*='Close']";
+
+  const cleared = [];
+  document.querySelectorAll("iframe").forEach((fr) => {
+    let doc = null;
+    try { doc = fr.contentDocument; } catch (e) { return; }
+    if (!doc) return;
+    // 미리보기인지 알아보는 표시: PDF 단추가 들어 있는 틀입니다.
+    if (!doc.querySelector(BUTTON)) return;
+
+    const closeBtn = doc.querySelector(CLOSE);
+    if (closeBtn) {
+      try { closeBtn.click(); cleared.push("닫기"); return; } catch (e) {}
+    }
+    try {
+      fr.setAttribute("src", "about:blank");
+      cleared.push("비움");
+    } catch (e) {
+      cleared.push("치우지못함");
+    }
+  });
+
+  return JSON.stringify({ ok: true, cleared: cleared, alerts: takeAlerts() });
+} catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 
 /**
  * 기록창만 닫습니다.
