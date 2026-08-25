@@ -153,6 +153,21 @@ export function isPortalOpen(): boolean {
   return !!portalWindow && !portalWindow.isDestroyed();
 }
 
+/** 포털 창과 그 창이 띄운 창들을 모두 닫습니다. */
+export function closePortal(): void {
+  const ses = session.fromPartition(PARTITION);
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue;
+    if (win.webContents.session !== ses) continue;
+    try {
+      win.destroy();
+    } catch {
+      // 이미 닫혔으면 그만입니다.
+    }
+  }
+  portalWindow = null;
+}
+
 /** 로그인 흔적을 지웁니다. 공용 컴퓨터에서 쓰신 뒤를 위한 것입니다. */
 export async function clearPortalSession(): Promise<void> {
   const ses = session.fromPartition(PARTITION);
@@ -490,7 +505,14 @@ function frameLoad(): { windows: number; frames: number } {
   return { windows: wins.length, frames };
 }
 
-type StepResult = { ok?: boolean; reason?: string; done?: boolean; [k: string]: unknown };
+type StepResult = {
+  ok?: boolean;
+  reason?: string;
+  done?: boolean;
+  /** 화면을 가진 틀이 준 대답인지. 빈 틀의 오류가 진짜 원인을 덮지 않게 합니다. */
+  hasReal?: boolean;
+  [k: string]: unknown;
+};
 
 /**
  * 걸음을 실행합니다.
@@ -525,11 +547,13 @@ async function run(script: string): Promise<StepResult> {
         const json = (await withTimeout(frame.executeJavaScript(script, true), 4000)) as string;
         const parsed = JSON.parse(json) as StepResult;
         if (parsed.ok) return parsed;
-        // 그 틀에 없다는 뜻이므로 다음 틀을 봅니다. 이유는 마지막 것을 남깁니다.
-        last = parsed;
+        // 화면을 가진 틀이 준 대답이라 쓸모가 있습니다. 이것을 남깁니다.
+        last = { ...parsed, hasReal: true };
       } catch (err) {
-        // nexacro 가 없거나 응답하지 않는 틀입니다. 넘어갑니다.
-        last = { ok: false, reason: err instanceof Error ? err.message : String(err) };
+        // nexacro 가 없는 틀(빈 창·인쇄 뷰어 등)입니다. 이런 오류가 진짜 원인을
+        // 덮어쓰면 무엇이 잘못됐는지 알 수 없게 되므로, 남길 것이 없을 때만 씁니다.
+        const message = err instanceof Error ? err.message : String(err);
+        if (!last.hasReal) last = { ok: false, reason: message };
       }
     }
   }
@@ -589,6 +613,7 @@ export async function runAutomation(
       if (!open.ok) {
         result.failed++;
         onLog({ kind: "error", text: `${i + 1}/${total} · 일지를 열지 못했습니다: ${open.reason}` });
+        if (onlyOne) return result;
         continue;
       }
       await wait(1500);
@@ -598,6 +623,7 @@ export async function runAutomation(
         result.failed++;
         onLog({ kind: "error", text: `${i + 1}/${total} · 양식 인쇄를 누르지 못했습니다: ${print.reason}` });
         await run(STEP_CLOSE);
+        if (onlyOne) return result;
         continue;
       }
       await wait(900);
@@ -615,6 +641,8 @@ export async function runAutomation(
             (opts.length ? ` (고를 수 있는 사유: ${opts.filter(Boolean).join(", ")})` : ""),
         });
         await run(STEP_CLOSE);
+        closeExtraWindows();
+        if (onlyOne) return result;
         continue;
       }
       onLog({ kind: "info", text: `열람 사유 '${warn.recordedAs}' 로 기록됩니다.` });
@@ -625,6 +653,7 @@ export async function runAutomation(
         result.failed++;
         onLog({ kind: "error", text: `${i + 1}/${total} · PDF 를 내려받지 못했습니다: ${exported.reason}` });
         await run(STEP_CLOSE);
+        if (onlyOne) return result;
         continue;
       }
 

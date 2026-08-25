@@ -217,71 +217,67 @@ export const STEP_CLICK_PRINT = `(() => { try {
 /**
  * 개인정보 열람 경고에서 사유를 고르고 「확인」을 누릅니다.
  *
- * 이 사유는 공단에 그대로 기록됩니다. 그래서 화면에서 선생님이 고르신 값을
- * 그대로 넣고, 실제로 무엇이 들어갔는지 돌려줍니다. 고를 수 있는 값 목록도
- * 함께 돌려주어, 원하시는 사유가 없으면 바로 알 수 있게 합니다.
+ * 콤보의 속 자료를 직접 뒤지지 않고 Nexacro 가 내주는 방법(getItemCount·
+ * getItemText·set_index)을 씁니다. 속 구조는 판마다 다르지만 이 방법은
+ * 그대로이기 때문입니다.
+ *
+ * 이 사유는 공단에 그대로 기록됩니다. 그래서 실제로 무엇이 들어갔는지와
+ * 고를 수 있었던 값들을 함께 돌려줍니다.
  */
 export function stepConfirmWarning(reason: string): string {
   return `(() => { try {
     ${HELPERS}
-    const want = ${JSON.stringify(reason)};
-    let picked = null;
-    let options = [];
+    const want = ${JSON.stringify(reason)}.replace(/\s/g, "");
 
-    // 보이는 콤보 가운데 우리가 찾는 사유를 담고 있는 것을 고릅니다.
     const combos = [];
     document.querySelectorAll("[id]").forEach((el) => {
       const id = el.id;
       if (!id || id.indexOf("mainframe") !== 0 || id.indexOf(":") >= 0) return;
       const c = resolve(id);
       if (!c || c._type_name !== "Combo" || c.visible === false) return;
-      combos.push(c);
+      combos.push({ path: id, c: c });
     });
 
-    for (const combo of combos) {
-      let ds = null;
-      try { ds = combo.innerdataset || (combo.getInnerDataset && combo.getInnerDataset()); } catch (e) {}
-      if (!ds || !ds.getRowCount) continue;
+    if (!combos.length) {
+      return JSON.stringify({ ok: false, reason: "열람 사유를 고르는 칸을 찾지 못했습니다.", alerts: takeAlerts() });
+    }
 
-      const codeCol = combo.codecolumn || "codecolumn";
-      const dataCol = combo.datacolumn || "datacolumn";
-      const here = [];
-      let hitRow = -1;
-      for (let i = 0; i < ds.getRowCount(); i++) {
+    const seen = [];
+    let picked = null;
+    let pickedPath = null;
+
+    for (const item of combos) {
+      const c = item.c;
+      let n = 0;
+      try { n = c.getItemCount ? c.getItemCount() : 0; } catch (e) { n = 0; }
+      if (!n) continue;
+
+      for (let i = 0; i < n; i++) {
         let label = "";
-        try { label = String(ds.getColumn(i, dataCol) || ""); } catch (e) {}
-        here.push(label);
-        if (label && label.replace(/\s/g, "").indexOf(want.replace(/\s/g, "")) >= 0) hitRow = i;
-      }
-      if (hitRow < 0) continue;
+        try { label = String(c.getItemText ? c.getItemText(i) : ""); } catch (e) {}
+        if (label) seen.push(label);
+        if (!label || label.replace(/\s/g, "").indexOf(want) < 0) continue;
 
-      options = here;
-      try {
-        const code = ds.getColumn(hitRow, codeCol);
-        if (typeof combo.set_value === "function") combo.set_value(code);
-        else if (typeof combo.set_index === "function") combo.set_index(hitRow);
-        // 화면이 바뀐 것을 포털에 알립니다.
-        if (typeof combo.updateToDataset === "function") combo.updateToDataset();
-        picked = combo.text || String(code);
-      } catch (e) {}
-      break;
+        try {
+          if (typeof c.set_index === "function") c.set_index(i);
+          else if (typeof c.set_value === "function" && c.getItemValue) c.set_value(c.getItemValue(i));
+          // 고른 것을 화면과 자료에 반영합니다.
+          if (typeof c.updateToDataset === "function") c.updateToDataset();
+          picked = c.text || label;
+          pickedPath = item.path;
+        } catch (e) {}
+        break;
+      }
+      if (picked !== null) break;
     }
 
     if (picked === null) {
-      // 사유를 못 골랐으면 확인을 누르지 않습니다. 눌러 봐야 막힐 뿐입니다.
-      const all = [];
-      for (const c of combos) {
-        let ds = null;
-        try { ds = c.innerdataset; } catch (e) {}
-        if (!ds || !ds.getRowCount) continue;
-        for (let i = 0; i < ds.getRowCount(); i++) {
-          try { all.push(String(ds.getColumn(i, c.datacolumn || "datacolumn") || "")); } catch (e) {}
-        }
-      }
+      // 못 골랐으면 확인을 누르지 않습니다. 눌러 봐야 막힐 뿐입니다.
       return JSON.stringify({
         ok: false,
-        reason: "열람 사유 '" + want + "'를 고를 수 없었습니다.",
-        options: all,
+        reason: "열람 사유 " + ${JSON.stringify(reason)} + " 를 고를 수 없었습니다.",
+        options: seen,
+        combos: combos.length,
         alerts: takeAlerts(),
       });
     }
@@ -291,7 +287,8 @@ export function stepConfirmWarning(reason: string): string {
       ok: clicked.ok,
       reason: clicked.reason,
       recordedAs: picked,
-      options: options,
+      pickedPath: pickedPath,
+      options: seen,
       alerts: takeAlerts(),
     });
   } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;

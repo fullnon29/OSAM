@@ -11,6 +11,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { findDocuments, importDocuments } from "../src/lib/documents/import-runner";
 import {
   clearPortalSession,
+  closePortal,
   dumpPortalStructure,
   isPortalOpen,
   isRecording,
@@ -102,6 +103,14 @@ function createWindow() {
   });
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, "index.html"));
+
+  // 본 창을 닫으면 포털 창도 함께 닫습니다.
+  // 포털 창이 남아 있으면 프로그램이 계속 살아 있어, 닫은 줄 알고 계셔도
+  // 실제로는 돌아가고 있게 됩니다.
+  win.on("close", () => {
+    requestStop();
+    closePortal();
+  });
   return win;
 }
 
