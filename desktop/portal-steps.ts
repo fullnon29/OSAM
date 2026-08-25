@@ -505,16 +505,25 @@ export function stepExportPdf(expectedYmds: string[]): string {
 
     for (const v of viewers) {
       seen++;
-      // 날짜를 못 읽는 미리보기(그림으로만 그리는 경우)는 막지 않습니다.
       const text = textOf(v.doc);
-      const readable = !!text && wanted.length > 0;
-      if (readable) {
-        const found = text.match(/20\\d{2}\\D{0,3}\\d{1,2}\\D{0,3}\\d{1,2}/g) || [];
-        for (const f of found.slice(0, 4)) if (sawDates.indexOf(f) < 0) sawDates.push(f);
-        if (!wanted.some((re) => re.test(text))) { mismatched++; continue; }
-      }
+      const found = text ? (text.match(/20\\d{2}\\D{0,3}\\d{1,2}\\D{0,3}\\d{1,2}/g) || []) : [];
+      for (const f of found.slice(0, 4)) if (sawDates.indexOf(f) < 0) sawDates.push(f);
+
+      // 날짜가 보일 때에만 견줍니다.
+      //
+      // 미리보기 창의 글자는 도구모음(인쇄·PDF·닫기)뿐이고 보고서 본문은
+      // 그 안에 그림으로 그려지는 경우가 있습니다. 그런 화면에서 '날짜가
+      // 없다'를 '날짜가 다르다'로 보면 한 건도 받지 못합니다. 실제로
+      // 그렇게 되어 전체가 막혔습니다.
+      //
+      // 날짜가 안 보이면 여기서는 판단하지 않고 넘어갑니다. 잘못 받았는지는
+      // 내려받은 PDF 를 열어 대조하는 쪽에서 잡습니다. 그쪽은 본문이 통째로
+      // 들어 있어 확실합니다.
+      const judgeable = found.length > 0 && wanted.length > 0;
+      if (judgeable && !wanted.some((re) => re.test(text))) { mismatched++; continue; }
+
       v.btn.click();
-      return JSON.stringify({ ok: true, where: v.where, checked: readable });
+      return JSON.stringify({ ok: true, where: v.where, checked: judgeable });
     }
 
     if (mismatched) {
