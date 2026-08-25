@@ -511,6 +511,8 @@ type StepResult = {
   done?: boolean;
   /** 화면을 가진 틀이 준 대답인지. 빈 틀의 오류가 진짜 원인을 덮지 않게 합니다. */
   hasReal?: boolean;
+  /** 그 틀에 포털 화면 자체가 없었다는 표시 */
+  noNexacro?: boolean;
   [k: string]: unknown;
 };
 
@@ -547,6 +549,11 @@ async function run(script: string): Promise<StepResult> {
         const json = (await withTimeout(frame.executeJavaScript(script, true), 4000)) as string;
         const parsed = JSON.parse(json) as StepResult;
         if (parsed.ok) return parsed;
+        // 화면이 없는 틀의 대답은 진짜 원인이 아닙니다. 남길 것이 없을 때만 씁니다.
+        if (parsed.noNexacro) {
+          if (!last.hasReal) last = parsed;
+          continue;
+        }
         // 화면을 가진 틀이 준 대답이라 쓸모가 있습니다. 이것을 남깁니다.
         last = { ...parsed, hasReal: true };
       } catch (err) {

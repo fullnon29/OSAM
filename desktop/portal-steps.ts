@@ -16,6 +16,12 @@
 
 /** 화면 안에서 공통으로 쓰는 도우미. 모든 걸음 앞에 붙습니다. */
 const HELPERS = `
+  // 이 틀에 화면이 없으면(빈 창·인쇄 뷰어 등) 더 볼 것이 없습니다.
+  // 여기서 나는 오류가 진짜 원인을 덮지 않도록 표시를 붙여 돌려보냅니다.
+  if (typeof nexacro === "undefined" || !nexacro.getApplication) {
+    return JSON.stringify({ ok: false, noNexacro: true, reason: "이 틀에는 포털 화면이 없습니다." });
+  }
+
   // 포털이 띄우는 알림창은 화면을 멈춰 세웁니다. 자동화가 그대로 얼어붙으므로
   // 글만 받아 두고 넘어갑니다. 무엇이 떴는지는 걸음마다 함께 돌려줍니다.
   //
