@@ -67,6 +67,63 @@
   </div>
 
   <div class="card">
+    <h2 style="font-size:14px;margin:0 0 10px">RFID 전송내역을 기준표와 맞추기</h2>
+    <div class="hint" style="margin:0 0 12px">
+      포털에서 <b>RFID → 전송내역 → 요양요원-전송내역</b> 화면을 열어 두신 뒤 쓰십시오.
+      먼저 <b>점검</b>으로 무엇이 다른지 엑셀로 받아 보시고, 그 내용을 확인하신 다음에
+      <b>반영</b>을 누르십시오. 점검은 포털에 아무것도 쓰지 않습니다.
+    </div>
+
+    <div class="row" style="margin-bottom:10px">
+      <button id="refPick">기준표 선택</button>
+      <span class="path" id="refPath" style="margin:0">기준표가 선택되지 않았습니다.</span>
+    </div>
+
+    <div class="row" style="margin-bottom:10px">
+      <label style="font-size:12.5px;color:var(--ink-soft)">급여제공일
+        <input type="date" id="rfidFrom" style="font-family:inherit;font-size:12.5px;padding:6px 8px" />
+        ~
+        <input type="date" id="rfidTo" style="font-family:inherit;font-size:12.5px;padding:6px 8px" />
+      </label>
+      <button class="preset" data-range="yesterday">어제</button>
+      <button class="preset" data-range="today">오늘</button>
+      <button class="preset" data-range="lastweek">지난주</button>
+      <button class="preset" data-range="thismonth">이번달</button>
+      <button class="preset" data-range="lastmonth">지난달</button>
+    </div>
+
+    <div class="row" style="margin-bottom:10px">
+      <label style="font-size:12.5px;color:var(--ink-soft)">'필요시' 목욕 · 한 달에
+        <input type="number" id="asNeededMin" value="1" min="0" max="10" style="width:52px;font-family:inherit;padding:6px" />
+        ~
+        <input type="number" id="asNeededMax" value="2" min="0" max="10" style="width:52px;font-family:inherit;padding:6px" /> 회
+      </label>
+      <label style="font-size:12.5px;color:var(--ink-soft);flex:1;min-width:260px">비고 문구
+        <input type="text" id="asNeededNote" value="어르신의 요청으로 목욕도움"
+               style="width:100%;font-family:inherit;font-size:12.5px;padding:6px 8px" />
+      </label>
+    </div>
+
+    <div class="row" style="margin-bottom:12px">
+      <label style="font-size:12.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="removeExtraBath" />
+        기준보다 많은 목욕도움을 <b>해제</b>합니다 (기본은 알려만 드립니다)
+      </label>
+    </div>
+
+    <div class="row">
+      <button id="rfidProbe">화면 살펴보기</button>
+      <button id="rfidOne">1줄만 시험</button>
+      <button id="rfidSurvey" class="primary">점검 (읽기만)</button>
+      <button id="rfidApply" disabled>승인하고 반영</button>
+      <button id="rfidStop" disabled>중지</button>
+    </div>
+
+    <div class="hint" id="rfidHint"></div>
+    <div class="problems" id="rfidLog" style="display:none;max-height:300px;overflow:auto"></div>
+  </div>
+
+  <div class="card">
     <h2 style="font-size:14px;margin:0 0 10px">받은 서류 올리기</h2>
     <div class="row">
       <button id="pick">폴더 선택</button>
@@ -185,6 +242,138 @@
     });
 
 
+  // ── RFID 전송내역 맞추기 ─────────────────────────────
+  let referenceFile = null;
+  let surveyDone = null;
+
+  const rfidLogBox = document.getElementById("rfidLog");
+  const addRfidLog = (log) => {
+    rfidLogBox.style.display = "block";
+    const line = document.createElement("div");
+    line.textContent = log.text;
+    if (log.kind === "ok") line.style.color = "var(--pine-deep)";
+    if (log.kind === "info") line.style.color = "var(--ink-soft)";
+    rfidLogBox.appendChild(line);
+    rfidLogBox.scrollTop = rfidLogBox.scrollHeight;
+  };
+  window.osam.onRfidLog(addRfidLog);
+
+  // 날짜칸은 어제로 채워 둡니다. 전날 것을 보시는 일이 가장 잦습니다.
+  const asDate = (d) => d.getFullYear() + "-" +
+    String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const shifted = (days) => { const d = new Date(); d.setDate(d.getDate() + days); return d; };
+
+  const setRange = (from, to) => {
+    document.getElementById("rfidFrom").value = asDate(from);
+    document.getElementById("rfidTo").value = asDate(to);
+  };
+  setRange(shifted(-1), shifted(-1));
+
+  for (const button of document.querySelectorAll(".preset")) {
+    button.onclick = () => {
+      const now = new Date();
+      switch (button.dataset.range) {
+        case "yesterday": setRange(shifted(-1), shifted(-1)); break;
+        case "today": setRange(now, now); break;
+        case "lastweek": {
+          // 지난주 월요일부터 일요일까지
+          const monday = new Date(now);
+          monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) - 7);
+          const sunday = new Date(monday);
+          sunday.setDate(sunday.getDate() + 6);
+          setRange(monday, sunday);
+          break;
+        }
+        case "thismonth":
+          setRange(new Date(now.getFullYear(), now.getMonth(), 1), now);
+          break;
+        case "lastmonth":
+          setRange(
+            new Date(now.getFullYear(), now.getMonth() - 1, 1),
+            new Date(now.getFullYear(), now.getMonth(), 0)
+          );
+          break;
+      }
+    };
+  }
+
+  document.getElementById("refPick").onclick = async () => {
+    const file = await window.osam.chooseReferenceFile();
+    if (!file) return;
+    referenceFile = file;
+    document.getElementById("refPath").textContent = file;
+  };
+
+  const rfidBusy = (busy) => {
+    for (const id of ["rfidProbe", "rfidOne", "rfidSurvey", "refPick"]) {
+      document.getElementById(id).disabled = busy;
+    }
+    document.getElementById("rfidStop").disabled = !busy;
+    // 반영은 점검이 끝나 고칠 것이 있을 때만 열립니다.
+    document.getElementById("rfidApply").disabled =
+      busy || !surveyDone || surveyDone.changeRows === 0;
+  };
+
+  document.getElementById("rfidProbe").onclick = async () => {
+    if (!downloadDir) { addRfidLog({ kind: "error", text: "저장 폴더를 먼저 고르십시오." }); return; }
+    const r = await window.osam.rfidProbe(downloadDir);
+    document.getElementById("rfidHint").textContent = r.saved ? r.summary + " — " + r.saved : r.summary;
+  };
+
+  const runSurvey = async (onlyOne) => {
+    if (!downloadDir) { addRfidLog({ kind: "error", text: "저장 폴더를 먼저 고르십시오." }); return; }
+    if (!referenceFile) { addRfidLog({ kind: "error", text: "기준표를 먼저 고르십시오." }); return; }
+    rfidLogBox.innerHTML = "";
+    surveyDone = null;
+    rfidBusy(true);
+
+    const r = await window.osam.rfidSurvey({
+      referenceFile,
+      from: document.getElementById("rfidFrom").value,
+      to: document.getElementById("rfidTo").value,
+      saveDir: downloadDir,
+      onlyOne,
+      asNeededMin: Number(document.getElementById("asNeededMin").value),
+      asNeededMax: Number(document.getElementById("asNeededMax").value),
+      asNeededNote: document.getElementById("asNeededNote").value,
+      removeExtraBath: document.getElementById("removeExtraBath").checked,
+    });
+
+    if (r.error) {
+      addRfidLog({ kind: "error", text: r.error });
+    } else {
+      surveyDone = r;
+      addRfidLog({ kind: "info", text: "보고서를 열어 내용을 확인하신 뒤 「승인하고 반영」을 누르십시오." });
+      if (r.reportFile) document.getElementById("rfidHint").textContent = "보고서: " + r.reportFile;
+    }
+    rfidBusy(false);
+  };
+
+  document.getElementById("rfidOne").onclick = () => runSurvey(true);
+  document.getElementById("rfidSurvey").onclick = () => runSurvey(false);
+
+  document.getElementById("rfidApply").onclick = async () => {
+    if (!surveyDone) return;
+    // 되돌리기 어려운 일이라 한 번 더 여쭙습니다. 무엇을 몇 건 고치는지
+    // 숫자로 보여 드려야 판단하실 수 있습니다.
+    const ok = window.confirm(
+      "포털 기록을 실제로 고칩니다.\n\n" +
+        "고칠 줄 " + surveyDone.changeRows + "건 · 항목 " + surveyDone.changeItems + "개\n" +
+        "그중 규칙으로 만든 목욕 체크 " + surveyDone.generated + "개\n\n" +
+        "보고서를 확인하셨습니까?"
+    );
+    if (!ok) return;
+    rfidBusy(true);
+    const r = await window.osam.rfidApply(downloadDir);
+    if (r.error) addRfidLog({ kind: "error", text: r.error });
+    // 반영하고 나면 화면 상태가 달라졌으니 다시 점검하셔야 합니다.
+    surveyDone = null;
+    rfidBusy(false);
+  };
+
+  document.getElementById("rfidStop").onclick = () => window.osam.rfidStop();
+
+
   let folder = null, running = false;
   const $ = (id) => document.getElementById(id);
 
@@ -194,6 +383,10 @@
       downloadDir = prefs.downloadDir;
       $("dlPath").textContent = prefs.downloadDir;
       $("portal").disabled = false;
+    }
+    if (prefs.referenceFile) {
+      referenceFile = prefs.referenceFile;
+      $("refPath").textContent = prefs.referenceFile;
     }
     if (prefs.importDir) {
       folder = prefs.importDir;

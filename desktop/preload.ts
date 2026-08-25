@@ -27,4 +27,24 @@ contextBridge.exposeInMainWorld("osam", {
   onPortalDownload: (cb: (e: unknown) => void) => {
     ipcRenderer.on("portal-download", (_e, payload) => cb(payload));
   },
+
+  // RFID 전송내역을 기준표와 맞추기
+  chooseReferenceFile: () => ipcRenderer.invoke("choose-reference-file"),
+  rfidProbe: (saveDir: string) => ipcRenderer.invoke("rfid-probe", saveDir),
+  rfidSurvey: (opts: {
+    referenceFile: string;
+    from: string;
+    to: string;
+    saveDir: string;
+    onlyOne: boolean;
+    asNeededMin: number;
+    asNeededMax: number;
+    asNeededNote: string;
+    removeExtraBath: boolean;
+  }) => ipcRenderer.invoke("rfid-survey", opts),
+  rfidApply: (saveDir: string) => ipcRenderer.invoke("rfid-apply", saveDir),
+  rfidStop: () => ipcRenderer.invoke("rfid-stop"),
+  onRfidLog: (cb: (log: unknown) => void) => {
+    ipcRenderer.on("rfid-log", (_e, payload) => cb(payload));
+  },
 });

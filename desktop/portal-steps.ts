@@ -14,8 +14,13 @@
 // 단추는 id 가 아니라 적힌 글자로 찾습니다. id 는 화면 개편 때 잘 바뀌지만
 // "양식 인쇄" 같은 글자는 잘 바뀌지 않기 때문입니다.
 
-/** 화면 안에서 공통으로 쓰는 도우미. 모든 걸음 앞에 붙습니다. */
-const HELPERS = `
+/**
+ * 화면 안에서 공통으로 쓰는 도우미. 모든 걸음 앞에 붙습니다.
+ *
+ * RFID 전송내역 걸음들(rfid-steps.ts)도 같은 것을 씁니다. 두 벌로 두면
+ * 한쪽만 고쳐 놓고 다른 쪽이 안 되는 일이 생기기 때문입니다.
+ */
+export const HELPERS = `
   // 이 틀에 화면이 없으면(빈 창·인쇄 뷰어 등) 더 볼 것이 없습니다.
   // 여기서 나는 오류가 진짜 원인을 덮지 않도록 표시를 붙여 돌려보냅니다.
   if (typeof nexacro === "undefined" || !nexacro.getApplication) {
@@ -215,65 +220,58 @@ export function stepOpenLog(index: number): string {
 }
 
 /**
- * 기록창에 자료가 실제로 채워졌는지 봅니다.
+ * 기록창이 '그 어르신의 그 일지'를 열고 있는지 확인합니다.
  *
- * 창은 곧바로 뜨지만 내용은 서버에서 따로 받아 옵니다. 그 전에 인쇄를 누르면
- * 빈 서식이 그대로 나옵니다.
+ * 채워져 있는지만 보면 안 됩니다. 앞 건의 창이 닫히지 않고 남아 있으면
+ * 그 내용이 그대로 보여 통과해 버리고, 같은 문서를 몇 백 번 내려받게 됩니다
+ * (실제로 465건을 같은 어르신 것으로 받았습니다).
  *
- * 인정번호 칸은 마스크 입력칸이라 화면에는 L 이 붙어 보여도 값에는 없을 수
- * 있습니다. 그래서 L 이 있든 없든 열 자리 숫자면 채워진 것으로 봅니다.
- * 못 찾으면 무엇이 보였는지 함께 돌려줍니다 — 빈손으로 다시 여쭙지 않기 위해서입니다.
+ * 그래서 목록에서 고른 인정번호와 창에 뜬 인정번호가 같은지 대조합니다.
+ * 숫자만 비교합니다 — 마스크 입력칸이라 L 이 붙기도 하고 안 붙기도 합니다.
  */
-export const STEP_RECORD_READY = `(() => { try {
-  ${HELPERS}
-  let ltcNo = null;
-  let filledCount = 0;
-  const samples = [];
+export function stepRecordReady(expectedLtcNo: string): string {
+  return `(() => { try {
+    ${HELPERS}
+    const wantDigits = ${JSON.stringify(expectedLtcNo)}.replace(/[^0-9]/g, "");
+    let matched = false;
+    let sawOther = false;
+    let filledCount = 0;
 
-  document.querySelectorAll("[id]").forEach((el) => {
-    const id = el.id;
-    if (!id || id.indexOf("mainframe") !== 0 || id.indexOf(":") >= 0) return;
-    const c = resolve(id);
-    if (!c) return;
-    const type = c._type_name || "";
-    if (type !== "Edit" && type !== "MaskEdit" && type !== "Static" && type !== "Calendar") return;
-    if (c.visible === false) return;
+    document.querySelectorAll("[id]").forEach((el) => {
+      const id = el.id;
+      if (!id || id.indexOf("mainframe") !== 0 || id.indexOf(":") >= 0) return;
+      const c = resolve(id);
+      if (!c) return;
+      const type = c._type_name || "";
+      if (type !== "Edit" && type !== "MaskEdit" && type !== "Static") return;
+      if (c.visible === false) return;
 
-    let v = "";
-    try {
-      const raw = c.value != null && c.value !== "" ? c.value : c.text;
-      v = raw == null ? "" : String(raw).trim();
-    } catch (e) { return; }
-    if (!v) return;
-    filledCount++;
+      let v = "";
+      try {
+        const raw = c.value != null && c.value !== "" ? c.value : c.text;
+        v = raw == null ? "" : String(raw).trim();
+      } catch (e) { return; }
+      if (!v) return;
+      filledCount++;
 
-    // 열 자리 숫자면 인정번호로 봅니다 (L 이 붙어 있든 아니든).
-    const digits = v.replace(/[^0-9]/g, "");
-    if (/^L?\d{10}$/.test(v) || (digits.length === 10 && /^L?[0-9]+$/.test(v))) {
-      ltcNo = "《인정번호》";
-    }
+      const digits = v.replace(/[^0-9]/g, "");
+      if (digits.length !== 10) return;
+      if (wantDigits && digits === wantDigits) matched = true;
+      else sawOther = true;
+    });
 
-    // 무엇이 보였는지 몇 개만, 모양만 적어 둡니다. 값은 남기지 않습니다.
-    if (samples.length < 12) {
-      samples.push({
-        type: type,
-        name: (c.name || "").slice(0, 24),
-        shape: /^[가-힣]{2,4}$/.test(v) ? "이름꼴"
-          : /^\d{4}[-.]\d{1,2}[-.]\d{1,2}$/.test(v) ? "날짜꼴"
-          : /^[0-9]+$/.test(v) ? "숫자" + v.length + "자리"
-          : /^L/.test(v) ? "L+" + digits.length + "자리"
-          : "글자" + v.length + "자",
-      });
-    }
-  });
-
-  return JSON.stringify({
-    ok: !!ltcNo,
-    reason: ltcNo ? undefined : "기록창에 아직 자료가 채워지지 않았습니다.",
-    filledCount: filledCount,
-    samples: samples,
-  });
-} catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
+    return JSON.stringify({
+      ok: matched,
+      reason: matched
+        ? undefined
+        : sawOther
+          ? "기록창에 다른 어르신의 내용이 떠 있습니다. 앞 창이 닫히지 않은 것입니다."
+          : "기록창에 아직 자료가 채워지지 않았습니다.",
+      filledCount: filledCount,
+      sawOther: sawOther,
+    });
+  } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
+}
 
 /**
  * 인쇄 단추를 누릅니다.

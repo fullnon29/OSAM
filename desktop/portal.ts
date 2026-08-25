@@ -21,7 +21,7 @@ import {
   STEP_EXPORT_PDF,
   STEP_LIST_LOGS,
   STEP_PROBE,
-  STEP_RECORD_READY,
+  stepRecordReady,
   stepConfirmWarning,
   stepOpenLog,
   stepSelectRecipient,
@@ -512,7 +512,7 @@ function frameLoad(): { windows: number; frames: number } {
   return { windows: wins.length, frames };
 }
 
-type StepResult = {
+export type StepResult = {
   ok?: boolean;
   reason?: string;
   done?: boolean;
@@ -572,6 +572,16 @@ async function run(script: string): Promise<StepResult> {
     }
   }
   return last;
+}
+
+/**
+ * 걸음 하나를 포털 창에서 실행합니다.
+ *
+ * RFID 전송내역 쪽(rfid.ts)도 같은 통로를 씁니다. 창을 찾고 틀을 훑는
+ * 규칙을 두 벌로 두면 한쪽만 고쳐 놓고 다른 쪽이 안 되기 때문입니다.
+ */
+export function runStep(script: string): Promise<StepResult> {
+  return run(script);
 }
 
 /**
@@ -661,6 +671,10 @@ export async function runAutomation(
     for (const row of rows) {
       if (stopRequested) break;
 
+      // 앞 건의 창이 남아 있으면 그 내용이 그대로 인쇄됩니다. 먼저 닫습니다.
+      await run(STEP_CLOSE);
+      await wait(400);
+
       const open = await run(stepOpenLog(row.i));
       if (!open.ok) {
         result.failed++;
@@ -674,7 +688,7 @@ export async function runAutomation(
       let lastCheck: StepResult = {};
       for (let tries = 0; tries < 16; tries++) {
         await wait(500);
-        lastCheck = await run(STEP_RECORD_READY);
+        lastCheck = await run(stepRecordReady(String(pick.ltcNo ?? "")));
         if (lastCheck.ok) {
           ready = true;
           break;
@@ -684,7 +698,8 @@ export async function runAutomation(
         result.failed++;
         onLog({
           kind: "error",
-          text: `${i + 1}/${total} · 기록창에 자료가 채워지지 않아 건너뜁니다 (8초 기다림).`,
+          text:
+            `${i + 1}/${total} · ${lastCheck.reason ?? "기록창을 확인하지 못했습니다"} — 건너뜁니다.`,
         });
         // 무엇이 보였는지 남깁니다. 이유 없이 실패만 적히면 또 여쭤봐야 합니다.
         onLog({ kind: "info", text: `  채워진 칸 ${lastCheck.filledCount ?? 0}개` });

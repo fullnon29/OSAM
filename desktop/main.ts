@@ -21,6 +21,8 @@ import {
   startRecording,
   stopRecording,
 } from "./portal";
+import { applyRfid, probeRfid, requestRfidStop, surveyRfid, type RfidLog } from "./rfid";
+import { stamp } from "./rfid-report";
 
 let db: SupabaseClient | null = null;
 let cancelRequested = false;
@@ -57,7 +59,7 @@ function loadSettings(): { url: string; key: string } | null {
  * 매번 다시 고르게 하면 번거롭고, 엉뚱한 폴더를 고를 위험도 있습니다.
  * 접속 열쇠가 든 settings.json 과는 따로 둡니다.
  */
-type Prefs = { downloadDir?: string; importDir?: string };
+type Prefs = { downloadDir?: string; importDir?: string; referenceFile?: string };
 
 function prefsFile(): string {
   return path.join(app.getPath("userData"), "prefs.json");
@@ -109,6 +111,7 @@ function createWindow() {
   // 실제로는 돌아가고 있게 됩니다.
   win.on("close", () => {
     requestStop();
+    requestRfidStop();
     closePortal();
   });
   return win;
@@ -272,5 +275,119 @@ ipcMain.handle(
 
 ipcMain.handle("auto-stop", () => {
   requestStop();
+  return { stopping: true };
+});
+
+/* ── RFID 전송내역을 기준표와 맞추기 ──────────────────────────
+   포털에 쓰는 일이라 점검과 반영을 갈라 놓았습니다. 점검은 읽기만 하고,
+   반영은 점검 결과를 보시고 승인하셔야 돕니다. */
+
+ipcMain.handle("choose-reference-file", async () => {
+  const result = await dialog.showOpenDialog({
+    title: "기준표 엑셀 파일 (시간배분)",
+    defaultPath: loadPrefs().referenceFile,
+    filters: [{ name: "엑셀 파일", extensions: ["xlsx", "xlsm"] }],
+    properties: ["openFile"],
+  });
+  if (result.canceled) return null;
+  savePrefs({ referenceFile: result.filePaths[0] });
+  return result.filePaths[0];
+});
+
+ipcMain.handle("rfid-probe", async (_e, saveDir: string) => probeRfid(saveDir));
+
+/**
+ * 진행 내역을 화면과 파일에 함께 남깁니다.
+ *
+ * 화면에만 뿌리면 프로그램이 중간에 멎었을 때 아무 흔적도 남지 않아
+ * 무엇이 잘못됐는지 알 수 없습니다. 한 줄이 생길 때마다 바로 적습니다.
+ */
+function rfidLogger(event: Electron.IpcMainInvokeEvent, saveDir: string, phase: string) {
+  const logFile = path.join(saveDir, `RFID${phase}기록-${stamp()}.txt`);
+  const append = (line: string) => {
+    try {
+      appendFileSync(logFile, `${line}
+`, "utf8");
+    } catch {
+      // 기록을 남기지 못해도 일 자체는 계속합니다.
+    }
+  };
+  append(`${phase} 시작 ${new Date().toLocaleString("ko-KR")}`);
+  return {
+    logFile,
+    onLog: (log: RfidLog) => {
+      append(`[${log.kind}] ${log.text}`);
+      event.sender.send("rfid-log", log);
+    },
+    finish: (line: string) => {
+      append("");
+      append(line);
+      append(`끝 ${new Date().toLocaleString("ko-KR")}`);
+    },
+  };
+}
+
+ipcMain.handle(
+  "rfid-survey",
+  async (
+    event,
+    opts: {
+      referenceFile: string;
+      from: string;
+      to: string;
+      saveDir: string;
+      onlyOne: boolean;
+      asNeededMin: number;
+      asNeededMax: number;
+      asNeededNote: string;
+      removeExtraBath: boolean;
+    }
+  ) => {
+    const logger = rfidLogger(event, opts.saveDir, "점검");
+    try {
+      const result = await surveyRfid(
+        {
+          referenceFile: opts.referenceFile,
+          from: opts.from,
+          to: opts.to,
+          saveDir: opts.saveDir,
+          onlyOne: opts.onlyOne,
+          planOptions: {
+            asNeededPerMonth: [opts.asNeededMin, opts.asNeededMax],
+            asNeededNote: opts.asNeededNote,
+            removeExtraBath: opts.removeExtraBath,
+          },
+        },
+        logger.onLog
+      );
+      logger.finish(
+        `읽음 ${result.read} · 못 읽음 ${result.unreadable} · 고칠 줄 ${result.changeRows}`
+      );
+      return { ...result, logFile: logger.logFile };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.onLog({ kind: "error", text: message });
+      logger.finish("오류로 멈췄습니다.");
+      return { error: message, logFile: logger.logFile };
+    }
+  }
+);
+
+ipcMain.handle("rfid-apply", async (event, saveDir: string) => {
+  const logger = rfidLogger(event, saveDir, "반영");
+  try {
+    const result = await applyRfid(logger.onLog);
+    logger.finish(`저장 ${result.saved} · 건너뜀 ${result.skipped} · 실패 ${result.failed}`);
+    return { ...result, logFile: logger.logFile };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.onLog({ kind: "error", text: message });
+    logger.finish("오류로 멈췄습니다.");
+    return { error: message, logFile: logger.logFile };
+  }
+});
+
+ipcMain.handle("rfid-stop", () => {
+  requestRfidStop();
   return { stopping: true };
 });
