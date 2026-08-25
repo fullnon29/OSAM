@@ -475,15 +475,19 @@ function portalWindows(): BrowserWindow[] {
 }
 
 /**
- * 일지 한 건을 끝낸 뒤 남은 창을 정리합니다.
+ * 일지 한 건을 끝낸 뒤, 그 사이에 새로 열린 창만 닫습니다.
  *
- * 기록창과 인쇄 뷰어가 닫히지 않고 쌓이면, 걸음마다 훑어야 할 창이 늘어
- * 점점 느려지다가 결국 멎습니다. 처음 연 포털 창만 남기고 닫습니다.
+ * 기록창과 인쇄 뷰어가 쌓이면 걸음마다 훑을 창이 늘어 점점 느려지다가
+ * 결국 멎습니다. 그렇다고 "처음 연 창만 남기고 닫기"로 하면 안 됩니다.
+ * 업무포털은 바로가기로 새 창에 열리는 경우가 있어, 정작 화면이 든 창을
+ * 없애 버리게 됩니다(실제로 그렇게 되어 첫 건 뒤로 전부 실패했습니다).
+ *
+ * 그래서 시작할 때 있던 창을 기억해 두고, 그 뒤에 생긴 것만 닫습니다.
  */
-function closeExtraWindows(): number {
+function closeWindowsOpenedAfter(baseline: Set<number>): number {
   let closed = 0;
   for (const win of portalWindows()) {
-    if (win === portalWindow) continue;
+    if (baseline.has(win.id)) continue;
     try {
       win.destroy();
       closed++;
@@ -602,6 +606,14 @@ export async function runAutomation(
   stopRequested = false;
   const result: AutoResult = { saved: 0, skipped: 0, failed: 0, stopped: false };
 
+  // 시작할 때 열려 있던 창들. 이 뒤에 생긴 창만 정리 대상입니다.
+  const baseline = new Set(portalWindows().map((w) => w.id));
+
+  // 같은 이유로 계속 실패하면 멈춥니다. 화면을 잃은 채로 94명을 헛도는 것은
+  // 시간만 버리고 기록만 지저분해집니다.
+  let consecutiveFailures = 0;
+  const giveUpAfter = 3;
+
   const probe = await run(STEP_PROBE);
   if (!probe.ok) {
     onLog({ kind: "error", text: String(probe.reason) });
@@ -621,9 +633,21 @@ export async function runAutomation(
     if (pick.done) break;
     if (!pick.ok) {
       result.failed++;
+      consecutiveFailures++;
       onLog({ kind: "error", text: `${i + 1}번째 어르신을 고르지 못했습니다: ${pick.reason}` });
+      if (consecutiveFailures >= giveUpAfter) {
+        onLog({
+          kind: "error",
+          text:
+            `같은 이유로 ${giveUpAfter}번 잇달아 실패해 멈춥니다. ` +
+            "포털 화면이 닫혔거나 로그인이 풀렸는지 확인해 주십시오.",
+        });
+        result.stopped = true;
+        break;
+      }
       continue;
     }
+    consecutiveFailures = 0;
     await wait(700);
 
     const logs = await run(STEP_LIST_LOGS);
@@ -668,7 +692,7 @@ export async function runAutomation(
           onLog({ kind: "info", text: `  칸 ${JSON.stringify(sample)}` });
         }
         await run(STEP_CLOSE);
-        closeExtraWindows();
+        closeWindowsOpenedAfter(baseline);
         if (onlyOne) return result;
         continue;
       }
@@ -701,7 +725,7 @@ export async function runAutomation(
           onLog({ kind: "info", text: `  칸 ${JSON.stringify(note)}` });
         }
         await run(STEP_CLOSE);
-        closeExtraWindows();
+        closeWindowsOpenedAfter(baseline);
         if (onlyOne) return result;
         continue;
       }
@@ -739,7 +763,7 @@ export async function runAutomation(
       await wait(600);
 
       // 닫히지 않고 남은 창을 치웁니다. 쌓이면 갈수록 느려집니다.
-      const closed = closeExtraWindows();
+      const closed = closeWindowsOpenedAfter(baseline);
       const load = frameLoad();
       if (closed) onLog({ kind: "info", text: `남은 창 ${closed}개를 닫았습니다.` });
       if (load.frames > 12) {
