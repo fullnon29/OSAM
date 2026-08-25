@@ -12,8 +12,13 @@
 회수할 수 없기 때문입니다. 대신 아래 위치에 설정 파일을 둡니다.
 
 ```
-C:\Users\<사용자>\AppData\Roaming\오샘 서류 정리 도구\settings.json
+C:\Users\<사용자>\AppData\Roaming\osam-desktop\settings.json
 ```
+
+창에 뜨는 이름은 `오샘 서류 정리 도구` 지만 폴더 이름은 `osam-desktop`
+입니다. 프로그램이 제 설정 자리를 `desktop/package.json` 의 `name` 으로
+잡기 때문입니다. 저장 폴더 기억(`prefs.json`)과 포털 로그인도 같은 폴더에
+있습니다. `접속 설정을 찾을 수 없습니다` 가 뜨면 여기부터 보십시오.
 
 ```json
 {
