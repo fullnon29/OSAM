@@ -674,6 +674,7 @@ export async function runAutomation(
       }
 
       const print = await run(STEP_CLICK_PRINT);
+      if (print.ok) onLog({ kind: "info", text: `「${print.pressed}」를 눌렀습니다.` });
       if (!print.ok) {
         result.failed++;
         onLog({ kind: "error", text: `${i + 1}/${total} · 양식 인쇄를 누르지 못했습니다: ${print.reason}` });

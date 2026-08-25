@@ -275,10 +275,22 @@ export const STEP_RECORD_READY = `(() => { try {
   });
 } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 
-/** 「양식 인쇄」를 누릅니다. */
+/**
+ * 인쇄 단추를 누릅니다.
+ *
+ * 화면에 인쇄 단추가 둘입니다.
+ *   「인쇄」      — 적힌 내용이 그대로 찍힙니다
+ *   「양식 인쇄」 — 손으로 쓰시라고 주는 빈 양식입니다
+ * 앞의 것을 눌러야 합니다. 「양식 인쇄」를 누르면 아무리 기다려도 빈 종이가
+ * 내려옵니다. 어느 것을 눌렀는지 함께 돌려주어 기록에 남게 합니다.
+ */
 export const STEP_CLICK_PRINT = `(() => { try {
   ${HELPERS}
-  return JSON.stringify(clickByText("양식 인쇄"));
+  for (const label of ["인쇄", "양식 인쇄"]) {
+    const r = clickByText(label);
+    if (r.ok) return JSON.stringify({ ok: true, pressed: label, path: r.path });
+  }
+  return JSON.stringify({ ok: false, reason: "인쇄 단추를 찾지 못했습니다." });
 } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 
 /**
