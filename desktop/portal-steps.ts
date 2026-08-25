@@ -459,13 +459,41 @@ export const STEP_EXPORT_PDF = `(() => { try {
   return JSON.stringify({ ok: false, reason: "PDF 단추를 찾지 못했습니다." });
 } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 
-/** 열려 있는 창을 닫아 다음 건으로 넘어갈 수 있게 합니다. */
+/**
+ * 기록창만 닫습니다.
+ *
+ * 그냥 「닫기」를 누르면 안 됩니다. 목록 화면에도 「닫기」가 있어서 업무수행일지
+ * 화면 자체가 닫혀 버립니다(실제로 그렇게 되어 자료를 통째로 잃었습니다).
+ *
+ * 기록창에만 있는 「인쇄」 단추를 먼저 찾아, 그 단추와 같은 화면에 있는
+ * 「닫기」를 누릅니다. 기록창이 없으면 아무것도 하지 않습니다.
+ */
 export const STEP_CLOSE = `(() => { try {
   ${HELPERS}
-  const closed = [];
-  for (const text of ["닫기", "취소"]) {
-    const r = clickByText(text);
-    if (r.ok) closed.push(text);
+  // 기록창을 알아보는 표시: 「인쇄」나 「양식 인쇄」가 있는 화면입니다.
+  let recordForm = null;
+  for (const label of ["인쇄", "양식 인쇄"]) {
+    const hits = buttonsByText(label);
+    if (hits.length) {
+      recordForm = hits[hits.length - 1].comp.parent;
+      break;
+    }
   }
-  return JSON.stringify({ ok: true, closed: closed });
+  if (!recordForm) return JSON.stringify({ ok: true, closed: false, reason: "기록창이 열려 있지 않습니다." });
+
+  // 그 화면 안의 닫기를 찾습니다.
+  const hits = buttonsByText("닫기").filter((h) => h.comp.parent === recordForm);
+  if (!hits.length) return JSON.stringify({ ok: true, closed: false, reason: "기록창의 닫기를 찾지 못했습니다." });
+
+  const target = hits[hits.length - 1].comp;
+  try {
+    if (typeof target.click === "function") target.click();
+    else {
+      const handler = recordForm[target.name + "_onclick"];
+      if (typeof handler === "function") handler.call(recordForm, target, {});
+    }
+  } catch (e) {
+    return JSON.stringify({ ok: false, reason: String(e && e.message || e) });
+  }
+  return JSON.stringify({ ok: true, closed: true, alerts: takeAlerts() });
 } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;

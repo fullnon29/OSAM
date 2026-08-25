@@ -1,13 +1,13 @@
-﻿appId: com.osamcare.documents
-productName: ?ㅼ깦 ?쒕쪟 ?뺣━ ?꾧뎄
-# 踰덈뱾??肄붾뱶? ?붾㈃ ?뚯씪留??댁뒿?덈떎. ?꾨줈?앺듃 ?뚯뒪??.env.local ? ?ｌ? ?딆뒿?덈떎.
+appId: com.osamcare.documents
+productName: 오샘 서류 정리 도구
+# 번들한 코드와 화면 파일만 담습니다. 프로젝트 소스와 .env.local 은 넣지 않습니다.
 directories:
-  # 諛뷀깢?붾㈃? ?숆린????곸씠??鍮뚮뱶 以??뚯씪???좉퉩?덈떎. ?숆린??諛뽰뿉 留뚮벊?덈떎.
+  # 바탕화면은 동기화 대상이라 빌드 중 파일이 잠깁니다. 동기화 밖에 만듭니다.
   output: C:/osam-dist
   buildResources: desktop
 files:
-  # dist ?덉쓽 ?뚯씪??袁몃윭誘?理쒖긽?꾨줈 ?ㅼ뼱媛묐땲??
-  # 洹몃옒??desktop/package.json ??main ??"main.js" ?ъ빞 ?⑸땲??
+  # dist 안의 파일들이 그대로 최상위로 들어갑니다.
+  # 그래서 desktop/package.json 의 main 이 "main.js" 여야 합니다.
   - from: desktop/dist
     to: .
     filter: ["**/*"]
@@ -16,11 +16,12 @@ files:
     filter: ["package.json"]
 extraMetadata:
   main: main.js
-  # ??湲곕뒫(怨듬떒 ?ы꽭 諛쏄린)???ㅼ뼱媛??먯쓣 援щ퀎?섍린 ?꾪빐 ?щ┰?덈떎.
-  version: 0.6.4
+  # 새 기능이 들어간 판을 구별하려고 올립니다.
+  # 0.7.0 — RFID 전송내역을 기준표와 맞추는 기능
+  version: 0.7.0
 win:
   target:
     - target: portable
       arch: [x64]
 portable:
-  artifactName: ?ㅼ깦?쒕쪟?뺣━?꾧뎄-${version}.exe
+  artifactName: 오샘서류정리도구-${version}.exe
