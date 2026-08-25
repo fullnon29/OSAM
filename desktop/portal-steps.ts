@@ -218,31 +218,60 @@ export function stepOpenLog(index: number): string {
  * 기록창에 자료가 실제로 채워졌는지 봅니다.
  *
  * 창은 곧바로 뜨지만 내용은 서버에서 따로 받아 옵니다. 그 전에 인쇄를 누르면
- * 빈 서식이 그대로 나옵니다. 인정번호가 들어찼는지로 판단합니다.
+ * 빈 서식이 그대로 나옵니다.
+ *
+ * 인정번호 칸은 마스크 입력칸이라 화면에는 L 이 붙어 보여도 값에는 없을 수
+ * 있습니다. 그래서 L 이 있든 없든 열 자리 숫자면 채워진 것으로 봅니다.
+ * 못 찾으면 무엇이 보였는지 함께 돌려줍니다 — 빈손으로 다시 여쭙지 않기 위해서입니다.
  */
 export const STEP_RECORD_READY = `(() => { try {
   ${HELPERS}
   let ltcNo = null;
-  let recipient = null;
+  let filledCount = 0;
+  const samples = [];
+
   document.querySelectorAll("[id]").forEach((el) => {
     const id = el.id;
     if (!id || id.indexOf("mainframe") !== 0 || id.indexOf(":") >= 0) return;
     const c = resolve(id);
     if (!c) return;
     const type = c._type_name || "";
-    if (type !== "Edit" && type !== "MaskEdit" && type !== "Static") return;
+    if (type !== "Edit" && type !== "MaskEdit" && type !== "Static" && type !== "Calendar") return;
+    if (c.visible === false) return;
+
     let v = "";
-    try { v = String(c.value != null && c.value !== "" ? c.value : (c.text || "")); } catch (e) { return; }
+    try {
+      const raw = c.value != null && c.value !== "" ? c.value : c.text;
+      v = raw == null ? "" : String(raw).trim();
+    } catch (e) { return; }
     if (!v) return;
-    if (/^L\d{10}$/.test(v.trim())) ltcNo = v.trim();
-    // 성함 칸은 두 글자 이상 한글입니다. 있는지만 봅니다(값은 돌려주지 않습니다).
-    if (/^[가-힣]{2,4}$/.test(v.trim())) recipient = true;
+    filledCount++;
+
+    // 열 자리 숫자면 인정번호로 봅니다 (L 이 붙어 있든 아니든).
+    const digits = v.replace(/[^0-9]/g, "");
+    if (/^L?\d{10}$/.test(v) || (digits.length === 10 && /^L?[0-9]+$/.test(v))) {
+      ltcNo = "《인정번호》";
+    }
+
+    // 무엇이 보였는지 몇 개만, 모양만 적어 둡니다. 값은 남기지 않습니다.
+    if (samples.length < 12) {
+      samples.push({
+        type: type,
+        name: (c.name || "").slice(0, 24),
+        shape: /^[가-힣]{2,4}$/.test(v) ? "이름꼴"
+          : /^\d{4}[-.]\d{1,2}[-.]\d{1,2}$/.test(v) ? "날짜꼴"
+          : /^[0-9]+$/.test(v) ? "숫자" + v.length + "자리"
+          : /^L/.test(v) ? "L+" + digits.length + "자리"
+          : "글자" + v.length + "자",
+      });
+    }
   });
+
   return JSON.stringify({
     ok: !!ltcNo,
     reason: ltcNo ? undefined : "기록창에 아직 자료가 채워지지 않았습니다.",
-    hasLtcNo: !!ltcNo,
-    hasName: !!recipient,
+    filledCount: filledCount,
+    samples: samples,
   });
 } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 

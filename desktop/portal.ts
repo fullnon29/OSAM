@@ -647,10 +647,11 @@ export async function runAutomation(
       // 창은 곧바로 뜨지만 내용은 서버에서 따로 받아 옵니다. 그 전에 인쇄하면
       // 빈 서식이 그대로 나옵니다. 자료가 들어찰 때까지 기다립니다.
       let ready = false;
+      let lastCheck: StepResult = {};
       for (let tries = 0; tries < 16; tries++) {
         await wait(500);
-        const check = await run(STEP_RECORD_READY);
-        if (check.ok) {
+        lastCheck = await run(STEP_RECORD_READY);
+        if (lastCheck.ok) {
           ready = true;
           break;
         }
@@ -661,6 +662,11 @@ export async function runAutomation(
           kind: "error",
           text: `${i + 1}/${total} · 기록창에 자료가 채워지지 않아 건너뜁니다 (8초 기다림).`,
         });
+        // 무엇이 보였는지 남깁니다. 이유 없이 실패만 적히면 또 여쭤봐야 합니다.
+        onLog({ kind: "info", text: `  채워진 칸 ${lastCheck.filledCount ?? 0}개` });
+        for (const sample of (lastCheck.samples as Record<string, unknown>[]) ?? []) {
+          onLog({ kind: "info", text: `  칸 ${JSON.stringify(sample)}` });
+        }
         await run(STEP_CLOSE);
         closeExtraWindows();
         if (onlyOne) return result;
