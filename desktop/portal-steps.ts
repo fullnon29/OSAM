@@ -214,6 +214,38 @@ export function stepOpenLog(index: number): string {
   } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
 }
 
+/**
+ * 기록창에 자료가 실제로 채워졌는지 봅니다.
+ *
+ * 창은 곧바로 뜨지만 내용은 서버에서 따로 받아 옵니다. 그 전에 인쇄를 누르면
+ * 빈 서식이 그대로 나옵니다. 인정번호가 들어찼는지로 판단합니다.
+ */
+export const STEP_RECORD_READY = `(() => { try {
+  ${HELPERS}
+  let ltcNo = null;
+  let recipient = null;
+  document.querySelectorAll("[id]").forEach((el) => {
+    const id = el.id;
+    if (!id || id.indexOf("mainframe") !== 0 || id.indexOf(":") >= 0) return;
+    const c = resolve(id);
+    if (!c) return;
+    const type = c._type_name || "";
+    if (type !== "Edit" && type !== "MaskEdit" && type !== "Static") return;
+    let v = "";
+    try { v = String(c.value != null && c.value !== "" ? c.value : (c.text || "")); } catch (e) { return; }
+    if (!v) return;
+    if (/^L\d{10}$/.test(v.trim())) ltcNo = v.trim();
+    // 성함 칸은 두 글자 이상 한글입니다. 있는지만 봅니다(값은 돌려주지 않습니다).
+    if (/^[가-힣]{2,4}$/.test(v.trim())) recipient = true;
+  });
+  return JSON.stringify({
+    ok: !!ltcNo,
+    reason: ltcNo ? undefined : "기록창에 아직 자료가 채워지지 않았습니다.",
+    hasLtcNo: !!ltcNo,
+    hasName: !!recipient,
+  });
+} catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
+
 /** 「양식 인쇄」를 누릅니다. */
 export const STEP_CLICK_PRINT = `(() => { try {
   ${HELPERS}

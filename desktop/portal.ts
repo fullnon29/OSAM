@@ -13,12 +13,15 @@
 // 되도록 한 것이며, 저장되는 것은 브라우저 쿠키뿐입니다.
 
 import { BrowserWindow, session } from "electron";
+import { readFileSync } from "node:fs";
+import { extractPdfText } from "../src/lib/documents/extract-text";
 import {
   STEP_CLICK_PRINT,
   STEP_CLOSE,
   STEP_EXPORT_PDF,
   STEP_LIST_LOGS,
   STEP_PROBE,
+  STEP_RECORD_READY,
   stepConfirmWarning,
   stepOpenLog,
   stepSelectRecipient,
@@ -568,6 +571,24 @@ async function run(script: string): Promise<StepResult> {
 }
 
 /**
+ * 받은 파일이 정말 채워진 일지인지 봅니다.
+ *
+ * 자료가 채워지기 전에 인쇄하면 빈 서식이 그대로 내려옵니다. 겉보기에는
+ * 성공이라 그대로 두면 빈 종이 94장을 받고도 모르게 됩니다. 인정번호가
+ * 들어 있는지로 판단합니다.
+ */
+async function looksFilled(file: string): Promise<{ filled: boolean; ltcNo: string | null }> {
+  try {
+    const { text } = await extractPdfText(readFileSync(file));
+    const m = text.match(/L\d{10}/);
+    return { filled: !!m, ltcNo: m ? m[0] : null };
+  } catch {
+    // 읽지 못하면 판단하지 않습니다. 받은 파일은 그대로 둡니다.
+    return { filled: true, ltcNo: null };
+  }
+}
+
+/**
  * 일지를 받아 옵니다.
  *
  * @param onlyOne 한 건만 받아 보고 멈춥니다. 처음 쓰실 때 확인용입니다.
@@ -623,7 +644,28 @@ export async function runAutomation(
         if (onlyOne) return result;
         continue;
       }
-      await wait(1500);
+      // 창은 곧바로 뜨지만 내용은 서버에서 따로 받아 옵니다. 그 전에 인쇄하면
+      // 빈 서식이 그대로 나옵니다. 자료가 들어찰 때까지 기다립니다.
+      let ready = false;
+      for (let tries = 0; tries < 16; tries++) {
+        await wait(500);
+        const check = await run(STEP_RECORD_READY);
+        if (check.ok) {
+          ready = true;
+          break;
+        }
+      }
+      if (!ready) {
+        result.failed++;
+        onLog({
+          kind: "error",
+          text: `${i + 1}/${total} · 기록창에 자료가 채워지지 않아 건너뜁니다 (8초 기다림).`,
+        });
+        await run(STEP_CLOSE);
+        closeExtraWindows();
+        if (onlyOne) return result;
+        continue;
+      }
 
       const print = await run(STEP_CLICK_PRINT);
       if (!print.ok) {
@@ -670,8 +712,17 @@ export async function runAutomation(
 
       const file = await waitForDownload(30000);
       if (file) {
-        result.saved++;
-        onLog({ kind: "ok", text: `${i + 1}/${total} · ${row.wrtDt} 받음` });
+        const check = await looksFilled(file);
+        if (check.filled) {
+          result.saved++;
+          onLog({ kind: "ok", text: `${i + 1}/${total} · ${row.wrtDt} 받음` });
+        } else {
+          result.failed++;
+          onLog({
+            kind: "error",
+            text: `${i + 1}/${total} · ${row.wrtDt} 빈 서식이 내려왔습니다. 자료가 채워지기 전에 인쇄된 것입니다.`,
+          });
+        }
       } else {
         result.failed++;
         onLog({ kind: "warn", text: `${i + 1}/${total} · ${row.wrtDt} 내려받기를 기다렸지만 오지 않았습니다.` });
