@@ -640,13 +640,17 @@ export async function runAutomation(
       for (const a of alerts) onLog({ kind: "warn", text: `포털 알림 — ${a}` });
       if (!warn.ok) {
         result.failed++;
-        const opts = (warn.options as string[]) ?? [];
+        const opts = ((warn.options as string[]) ?? []).filter(Boolean);
         onLog({
           kind: "error",
           text:
             `${i + 1}/${total} · ${warn.reason}` +
-            (opts.length ? ` (고를 수 있는 사유: ${opts.filter(Boolean).join(", ")})` : ""),
+            (opts.length ? ` (고를 수 있는 사유: ${opts.join(", ")})` : ""),
         });
+        // 왜 못 읽었는지까지 남깁니다. 이유 없이 실패만 적히면 또 여쭤봐야 합니다.
+        for (const note of (warn.combos as Record<string, unknown>[]) ?? []) {
+          onLog({ kind: "info", text: `  칸 ${JSON.stringify(note)}` });
+        }
         await run(STEP_CLOSE);
         closeExtraWindows();
         if (onlyOne) return result;

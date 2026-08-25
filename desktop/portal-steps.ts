@@ -223,17 +223,20 @@ export const STEP_CLICK_PRINT = `(() => { try {
 /**
  * 개인정보 열람 경고에서 사유를 고르고 「확인」을 누릅니다.
  *
- * 콤보의 속 자료를 직접 뒤지지 않고 Nexacro 가 내주는 방법(getItemCount·
- * getItemText·set_index)을 씁니다. 속 구조는 판마다 다르지만 이 방법은
- * 그대로이기 때문입니다.
+ * 콤보에서 항목을 읽는 방법이 판마다 다릅니다. 한 가지만 쓰면 이번처럼
+ * 아무것도 못 읽고 멈춥니다. 세 가지를 차례로 시도합니다.
+ *   1) getItemCount / getItemText  — Nexacro 가 내주는 방법
+ *   2) innerdataset                — 콤보가 속에 지닌 자료
+ *   3) binddataset                 — 화면의 자료를 갖다 쓰는 경우
  *
- * 이 사유는 공단에 그대로 기록됩니다. 그래서 실제로 무엇이 들어갔는지와
- * 고를 수 있었던 값들을 함께 돌려줍니다.
+ * 그래도 못 읽으면 무엇을 보았는지 낱낱이 돌려줍니다. 다음 번에 또
+ * 빈손으로 물어보지 않기 위해서입니다.
  */
 export function stepConfirmWarning(reason: string): string {
   return `(() => { try {
     ${HELPERS}
-    const want = ${JSON.stringify(reason)}.replace(/\s/g, "");
+    const wanted = ${JSON.stringify(reason)};
+    const want = wanted.replace(/\s/g, "");
 
     const combos = [];
     document.querySelectorAll("[id]").forEach((el) => {
@@ -245,32 +248,100 @@ export function stepConfirmWarning(reason: string): string {
     });
 
     if (!combos.length) {
-      return JSON.stringify({ ok: false, reason: "열람 사유를 고르는 칸을 찾지 못했습니다.", alerts: takeAlerts() });
+      return JSON.stringify({
+        ok: false,
+        reason: "열람 사유를 고르는 칸을 찾지 못했습니다.",
+        alerts: takeAlerts(),
+      });
     }
 
-    const seen = [];
+    // 한 콤보에서 항목을 읽어 냅니다. { labels, pick(i) } 를 돌려줍니다.
+    const readItems = (c) => {
+      // 1) Nexacro 가 내주는 방법
+      try {
+        const n = c.getItemCount ? c.getItemCount() : 0;
+        if (n > 0) {
+          const labels = [];
+          for (let i = 0; i < n; i++) labels.push(String(c.getItemText(i)));
+          return { how: "getItemCount", labels: labels, pick: (i) => c.set_index(i) };
+        }
+      } catch (e) {}
+
+      // 2) 콤보가 속에 지닌 자료
+      for (const key of ["innerdataset", "_innerdataset"]) {
+        try {
+          const ds = c[key];
+          if (ds && ds.getRowCount && ds.getRowCount() > 0) {
+            const dataCol = c.datacolumn || "datacolumn";
+            const codeCol = c.codecolumn || "codecolumn";
+            const labels = [];
+            for (let i = 0; i < ds.getRowCount(); i++) labels.push(String(ds.getColumn(i, dataCol)));
+            return {
+              how: key,
+              labels: labels,
+              pick: (i) => {
+                if (c.set_value) c.set_value(ds.getColumn(i, codeCol));
+                else if (c.set_index) c.set_index(i);
+              },
+            };
+          }
+        } catch (e) {}
+      }
+
+      // 3) 화면의 자료를 갖다 쓰는 경우
+      try {
+        const name = c.binddataset;
+        if (name) {
+          const owner = c.parent;
+          const ds = owner && owner[name];
+          if (ds && ds.getRowCount && ds.getRowCount() > 0) {
+            const dataCol = c.datacolumn || "datacolumn";
+            const codeCol = c.codecolumn || "codecolumn";
+            const labels = [];
+            for (let i = 0; i < ds.getRowCount(); i++) labels.push(String(ds.getColumn(i, dataCol)));
+            return {
+              how: "binddataset:" + name,
+              labels: labels,
+              pick: (i) => {
+                if (c.set_value) c.set_value(ds.getColumn(i, codeCol));
+                else if (c.set_index) c.set_index(i);
+              },
+            };
+          }
+        }
+      } catch (e) {}
+
+      return null;
+    };
+
+    const notes = [];
     let picked = null;
-    let pickedPath = null;
 
     for (const item of combos) {
       const c = item.c;
-      let n = 0;
-      try { n = c.getItemCount ? c.getItemCount() : 0; } catch (e) { n = 0; }
-      if (!n) continue;
+      const read = readItems(c);
+      if (!read || !read.labels.length) {
+        // 무엇을 보았는지 적어 둡니다. 다음 번에 빈손으로 묻지 않기 위해서입니다.
+        notes.push({
+          path: item.path,
+          text: c.text || "",
+          getItemCount: typeof c.getItemCount,
+          innerdataset: c.innerdataset ? "있음" : "없음",
+          binddataset: c.binddataset || "없음",
+          datacolumn: c.datacolumn || "없음",
+          codecolumn: c.codecolumn || "없음",
+        });
+        continue;
+      }
 
-      for (let i = 0; i < n; i++) {
-        let label = "";
-        try { label = String(c.getItemText ? c.getItemText(i) : ""); } catch (e) {}
-        if (label) seen.push(label);
-        if (!label || label.replace(/\s/g, "").indexOf(want) < 0) continue;
+      notes.push({ path: item.path, how: read.how, labels: read.labels });
 
+      for (let i = 0; i < read.labels.length; i++) {
+        if (read.labels[i].replace(/\s/g, "").indexOf(want) < 0) continue;
         try {
-          if (typeof c.set_index === "function") c.set_index(i);
-          else if (typeof c.set_value === "function" && c.getItemValue) c.set_value(c.getItemValue(i));
-          // 고른 것을 화면과 자료에 반영합니다.
+          read.pick(i);
           if (typeof c.updateToDataset === "function") c.updateToDataset();
-          picked = c.text || label;
-          pickedPath = item.path;
+          picked = c.text || read.labels[i];
         } catch (e) {}
         break;
       }
@@ -278,12 +349,13 @@ export function stepConfirmWarning(reason: string): string {
     }
 
     if (picked === null) {
-      // 못 골랐으면 확인을 누르지 않습니다. 눌러 봐야 막힐 뿐입니다.
+      const all = [];
+      for (const n of notes) if (n.labels) all.push.apply(all, n.labels);
       return JSON.stringify({
         ok: false,
-        reason: "열람 사유 " + ${JSON.stringify(reason)} + " 를 고를 수 없었습니다.",
-        options: seen,
-        combos: combos.length,
+        reason: "열람 사유 " + wanted + " 를 고를 수 없었습니다.",
+        options: all,
+        combos: notes,
         alerts: takeAlerts(),
       });
     }
@@ -293,8 +365,7 @@ export function stepConfirmWarning(reason: string): string {
       ok: clicked.ok,
       reason: clicked.reason,
       recordedAs: picked,
-      pickedPath: pickedPath,
-      options: seen,
+      options: (notes.find((n) => n.labels) || {}).labels || [],
       alerts: takeAlerts(),
     });
   } catch (e) { return JSON.stringify({ ok: false, reason: String(e && e.message || e) }); } })()`;
