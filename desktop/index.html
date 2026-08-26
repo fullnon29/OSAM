@@ -50,8 +50,17 @@
         </select>
       </label>
       <button id="autoOne" class="primary">1건만 시험</button>
+      <button id="autoLatest" class="primary">최신만 받기</button>
       <button id="autoAll">전체 받기</button>
       <button id="autoStop" disabled>중지</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label style="font-size:12.5px;color:var(--ink-soft)">작성일자
+        <input type="date" id="dlFrom" style="font-family:inherit;font-size:12.5px;padding:6px 8px" />
+        ~
+        <input type="date" id="dlTo" style="font-family:inherit;font-size:12.5px;padding:6px 8px" />
+      </label>
+      <button id="autoDate" class="primary">날짜 지정 받기</button>
       <button id="portalDump">화면 구조 저장</button>
       <button id="recToggle">동작 기록 시작</button>
       <button id="portalClear">로그인 흔적 지우기</button>
@@ -187,22 +196,34 @@
     };
     window.osam.onAutoLog(addAutoLog);
 
-    const runAuto = async (onlyOne) => {
+    const autoBtns = ["autoOne", "autoLatest", "autoAll", "autoDate"];
+    const runAuto = async (onlyOne, latestOnly, useDateFilter) => {
       autoLogBox.innerHTML = "";
-      document.getElementById("autoOne").disabled = true;
-      document.getElementById("autoAll").disabled = true;
+      for (const id of autoBtns) document.getElementById(id).disabled = true;
       document.getElementById("autoStop").disabled = false;
       if (!downloadDir) { addAutoLog({ kind: "error", text: "저장 폴더를 먼저 고르십시오." }); return; }
-      const r = await window.osam.autoFetch({ onlyOne, reason: document.getElementById("reason").value, saveDir: downloadDir });
+      const opts = { onlyOne, reason: document.getElementById("reason").value, saveDir: downloadDir, latestOnly };
+      if (useDateFilter) {
+        opts.dateFrom = document.getElementById("dlFrom").value || undefined;
+        opts.dateTo = document.getElementById("dlTo").value || undefined;
+        if (!opts.dateFrom && !opts.dateTo) {
+          addAutoLog({ kind: "error", text: "날짜를 하나 이상 지정해 주십시오." });
+          for (const id of autoBtns) document.getElementById(id).disabled = false;
+          document.getElementById("autoStop").disabled = true;
+          return;
+        }
+      }
+      const r = await window.osam.autoFetch(opts);
       addAutoLog({ kind: "info", text: `끝났습니다 — 받음 ${r.saved} · 건너뜀 ${r.skipped} · 실패 ${r.failed}` });
       if (r.logFile) addAutoLog({ kind: "info", text: "기록: " + r.logFile });
-      document.getElementById("autoOne").disabled = false;
-      document.getElementById("autoAll").disabled = false;
+      for (const id of autoBtns) document.getElementById(id).disabled = false;
       document.getElementById("autoStop").disabled = true;
     };
 
-    document.getElementById("autoOne").onclick = () => runAuto(true);
-    document.getElementById("autoAll").onclick = () => runAuto(false);
+    document.getElementById("autoOne").onclick = () => runAuto(true, false, false);
+    document.getElementById("autoLatest").onclick = () => runAuto(false, true, false);
+    document.getElementById("autoAll").onclick = () => runAuto(false, false, false);
+    document.getElementById("autoDate").onclick = () => runAuto(false, false, true);
     document.getElementById("autoStop").onclick = () => window.osam.autoStop();
 
     let recording = false;

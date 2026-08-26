@@ -576,6 +576,29 @@ async function run(script: string): Promise<StepResult> {
 }
 
 /**
+ * REXPERT PRINT 같은 인쇄 미리보기 창을 닫습니다.
+ *
+ * JavaScript를 프레임에 주입하면 응답 없는 프레임에서 멎습니다.
+ * 대신 Electron 메인 프로세스에서 창 제목을 보고 닫습니다.
+ */
+function closePreviewWindows(): string[] {
+  const closed: string[] = [];
+  for (const win of portalWindows()) {
+    if (win === portalWindow) continue;
+    try {
+      const title = win.getTitle();
+      if (/rexpert|print|clipreport|미리보기/i.test(title)) {
+        win.destroy();
+        closed.push(title.slice(0, 40));
+      }
+    } catch {
+      // 이미 닫힌 창
+    }
+  }
+  return closed;
+}
+
+/**
  * 걸음 하나를 포털 창에서 실행합니다.
  *
  * RFID 전송내역 쪽(rfid.ts)도 같은 통로를 씁니다. 창을 찾고 틀을 훑는
@@ -627,13 +650,19 @@ export async function looksFilled(
 /**
  * 일지를 받아 옵니다.
  *
- * @param onlyOne 한 건만 받아 보고 멈춥니다. 처음 쓰실 때 확인용입니다.
- * @param reason  개인정보 열람 사유. 공단에 그대로 기록됩니다.
+ * @param onlyOne    한 건만 받아 보고 멈춥니다. 처음 쓰실 때 확인용입니다.
+ * @param reason     개인정보 열람 사유. 공단에 그대로 기록됩니다.
+ * @param latestOnly 어르신별 최신 일지 1건만 받습니다.
+ * @param dateFrom   이 날짜부터 받습니다 (YYYY-MM-DD). 생략하면 제한 없음.
+ * @param dateTo     이 날짜까지 받습니다 (YYYY-MM-DD). 생략하면 제한 없음.
  */
 export async function runAutomation(
   onlyOne: boolean,
   reason: string,
-  onLog: (log: AutoLog) => void
+  onLog: (log: AutoLog) => void,
+  latestOnly = false,
+  dateFrom?: string,
+  dateTo?: string,
 ): Promise<AutoResult> {
   stopRequested = false;
   const result: AutoResult = { saved: 0, skipped: 0, failed: 0, stopped: false };
@@ -693,7 +722,24 @@ export async function runAutomation(
       continue;
     }
 
-    for (const row of rows) {
+    const filtered = rows.filter((row) => {
+      if (!dateFrom && !dateTo) return true;
+      const d = (row.wrtDt ?? "").replace(/[^0-9]/g, "").slice(0, 8);
+      if (d.length < 8) return true;
+      if (dateFrom && d < dateFrom.replace(/[^0-9]/g, "")) return false;
+      if (dateTo && d > dateTo.replace(/[^0-9]/g, "")) return false;
+      return true;
+    });
+    if (filtered.length < rows.length) {
+      onLog({ kind: "info", text: `${i + 1}/${total} · 일지 ${rows.length}건 중 날짜에 맞는 ${filtered.length}건만 받습니다.` });
+    }
+    if (!filtered.length) {
+      result.skipped++;
+      onLog({ kind: "info", text: `${i + 1}/${total} · 날짜 범위에 맞는 일지가 없어 건너뜁니다.` });
+      continue;
+    }
+    const target = latestOnly ? filtered.slice(0, 1) : filtered;
+    for (const row of target) {
       if (stopRequested) break;
 
       // 앞 건의 창이 남아 있으면 그 내용이 그대로 인쇄됩니다. 먼저 닫습니다.
@@ -737,6 +783,10 @@ export async function runAutomation(
         continue;
       }
 
+      const preClean = closePreviewWindows();
+      if (preClean.length) {
+        onLog({ kind: "info", text: `이전 미리보기 창 닫음: ${preClean.join(", ")}` });
+      }
       const print = await run(STEP_CLICK_PRINT);
       if (print.ok) onLog({ kind: "info", text: `「${print.pressed}」를 눌렀습니다.` });
       // 인쇄를 누를 때 포털이 무엇을 물었는지 남깁니다. 물어보는 창은
@@ -785,7 +835,7 @@ export async function runAutomation(
       // 둘 다 넘겨 하나라도 맞으면 넘어가게 합니다.
       const expected = [row.wrtDt, row.visDt].filter(Boolean);
       let exported = await run(stepExportPdf(expected));
-      for (let tries = 0; tries < 12 && !exported.ok && exported.waiting; tries++) {
+      for (let tries = 0; tries < 30 && !exported.ok && exported.waiting; tries++) {
         await wait(500);
         exported = await run(stepExportPdf(expected));
       }
@@ -806,6 +856,7 @@ export async function runAutomation(
         for (const frame of (exported.frames as string[]) ?? []) {
           onLog({ kind: "info", text: `  틀: ${frame}` });
         }
+        closePreviewWindows();
         await run(STEP_CLOSE_PREVIEW);
         await run(STEP_CLOSE);
         closeWindowsOpenedAfter(baseline);
@@ -856,7 +907,10 @@ export async function runAutomation(
 
       // 미리보기를 먼저 치우고 기록창을 닫습니다. 미리보기가 남으면 다음
       // 일지를 인쇄해도 앞 건이 그대로 보입니다.
-      await run(STEP_CLOSE_PREVIEW);
+      closePreviewWindows();
+      const previewResult = await run(STEP_CLOSE_PREVIEW);
+      const cleared = (previewResult.cleared as string[]) ?? [];
+      if (cleared.length) onLog({ kind: "info", text: `미리보기 정리: ${cleared.join(", ")}` });
       await run(STEP_CLOSE);
       await wait(600);
 

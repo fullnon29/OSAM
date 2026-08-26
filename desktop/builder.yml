@@ -18,7 +18,11 @@ extraMetadata:
   main: main.js
   # 새 기능이 들어간 판을 구별하려고 올립니다.
   # 0.7.0 — RFID 전송내역을 기준표와 맞추는 기능
-  version: 0.7.0
+  # 0.7.1 — 포털 최신만 받기, 메모리 crash 수정
+  # 0.7.2 — 업무수행일지 6항·7항 → 욕구사정 총평 반영
+  # 0.7.3 — 작성일자 범위로 일지 받기
+  version: 0.7.3
+electronVersion: "43.4.1"
 win:
   target:
     - target: portable

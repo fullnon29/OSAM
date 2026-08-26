@@ -465,7 +465,7 @@ export function stepExportPdf(expectedYmds: string[]): string {
     // 날짜를 여럿 받습니다. 일지 목록에는 작성일자와 방문일자가 따로 있는데
     // 인쇄물에 어느 쪽이 찍히는지는 화면마다 다릅니다. 하나만 보고 막으면
     // 멀쩡한 미리보기를 거부하게 됩니다. 그중 하나라도 맞으면 누릅니다.
-    const BUTTON = "#btnPdf, .btnPdf, [title*='PDF'], [alt*='PDF'], img[src*='pdf']";
+    const BUTTON = "#btnPdf:not([data-exported]), .btnPdf:not([data-exported]), [title*='PDF']:not([data-exported]), [alt*='PDF']:not([data-exported]), img[src*='pdf']:not([data-exported])";
 
     const datePattern = (raw) => {
       const ymd = String(raw == null ? "" : raw).replace(/[^0-9]/g, "");
@@ -488,15 +488,17 @@ export function stepExportPdf(expectedYmds: string[]): string {
     let mismatched = 0;
 
     const viewers = [];
-    document.querySelectorAll("iframe").forEach((fr) => {
-      let doc = null;
-      try { doc = fr.contentDocument; } catch (e) { return; }
-      if (!doc) return;
+    const scanDoc = (doc, where) => {
       const btn = doc.querySelector(BUTTON);
-      if (btn) viewers.push({ doc: doc, btn: btn, where: "iframe" });
+      if (btn) { viewers.push({ doc: doc, btn: btn, where: where }); return; }
+      try { doc.querySelectorAll("iframe").forEach((inner) => {
+        try { if (inner.contentDocument) scanDoc(inner.contentDocument, where + ">iframe"); } catch (e) {}
+      }); } catch (e) {}
+    };
+    document.querySelectorAll("iframe").forEach((fr) => {
+      try { if (fr.contentDocument) scanDoc(fr.contentDocument, "iframe"); } catch (e) {}
     });
-    const own = document.querySelector(BUTTON);
-    if (own) viewers.push({ doc: document, btn: own, where: "page" });
+    scanDoc(document, "page");
 
     // 미리보기에 무슨 날짜가 적혀 있었는지 모아 둡니다. 막기만 하고 무엇을
     // 보았는지 말하지 않으면, 앞 건이 남은 것인지 우리가 엉뚱한 날짜로
@@ -523,6 +525,7 @@ export function stepExportPdf(expectedYmds: string[]): string {
       if (judgeable && !wanted.some((re) => re.test(text))) { mismatched++; continue; }
 
       v.btn.click();
+      try { v.btn.setAttribute("data-exported", "1"); } catch (e) {}
       return JSON.stringify({ ok: true, where: v.where, checked: judgeable });
     }
 
@@ -536,14 +539,28 @@ export function stepExportPdf(expectedYmds: string[]): string {
       });
     }
     // 미리보기를 하나도 못 찾았습니다. 무엇이 있었는지 적어 둡니다. 이것이
-    // 없으면 "미리보기가 안 떴다"와 "우리 선택자가 못 알아본다"를 가릴 수
+    // 없으면 "미리보기가 안 떠다"와 "우리 선택자가 못 알아본다"를 가릴 수
     // 없어, 화면을 보지 못하는 채로 또 짐작하게 됩니다.
     const frames = [];
+    let staleCount = 0;
+    const ALL_BTNS = "#btnPdf, .btnPdf, [title*='PDF'], [alt*='PDF'], img[src*='pdf']";
     document.querySelectorAll("iframe").forEach((fr) => {
       let doc = null;
       try { doc = fr.contentDocument; } catch (e) { frames.push("남의틀"); return; }
       if (!doc) { frames.push("빈틀"); return; }
       const src = String(fr.getAttribute("src") || "").slice(0, 60);
+      // 이미 내려받은 미리보기인지 봅니다.
+      if (/report|clip/i.test(src)) {
+        try {
+          var allBtns = doc.querySelectorAll(ALL_BTNS);
+          var exported = doc.querySelectorAll("[data-exported]");
+          if (exported.length > 0 || (allBtns.length === 0 && doc.querySelector("[data-exported]"))) {
+            staleCount++;
+            frames.push(src + " → 이미내려받음");
+            return;
+          }
+        } catch (e) {}
+      }
       // 그 틀에 단추처럼 생긴 것이 무엇이 있는지 몇 개만 봅니다.
       const marks = [];
       try {
@@ -558,9 +575,15 @@ export function stepExportPdf(expectedYmds: string[]): string {
       frames.push((src || "(src없음)") + " → " + (marks.length ? marks.join(" / ") : "단추같은것없음"));
     });
 
+    const hasReportFrame = frames.some((f) => /report|clip/i.test(f) && !/이미내려받음/.test(f));
     return JSON.stringify({
       ok: false,
-      reason: "PDF 단추를 찾지 못했습니다.",
+      waiting: hasReportFrame,
+      reason: hasReportFrame
+        ? "미리보기 틀은 있으나 아직 불러오는 중입니다."
+        : staleCount
+          ? "이전 미리보기만 남아 있고 새 미리보기가 뜨지 않았습니다."
+          : "PDF 단추를 찾지 못했습니다.",
       viewers: seen,
       frames: frames,
     });
@@ -587,16 +610,68 @@ export const STEP_CLOSE_PREVIEW = `(() => { try {
   const CLOSE = "#btnClose, .btnClose, #btnExit, [title*='닫기'], [alt*='닫기'], [title*='Close'], [alt*='Close']";
 
   const cleared = [];
+
+  // 1. Nexacro 팝업(REXPERT PRINT 등)을 닫습니다.
+  //    팝업은 iframe이 아니라 Nexacro ChildFrame 컴포넌트입니다.
+  //    DOM 요소의 id 에 "rexpert" 나 "print" 가 들어 있으면 그 팝업입니다.
+  document.querySelectorAll("[id]").forEach((el) => {
+    const id = el.id;
+    if (!id || id.indexOf("mainframe") !== 0) return;
+    if (!/rexpert|popup_print|clipreport/i.test(id)) return;
+    const comp = resolve(id);
+    if (!comp) return;
+    // 팝업 틀이면 .close() 로 닫습니다.
+    if (typeof comp.close === "function") {
+      try { comp.close(); cleared.push("nexacro:" + (comp._type_name || "?")); return; } catch (e) {}
+    }
+    // 닫기 단추(titlebar 의 X)이면 .click() 합니다.
+    if (typeof comp.click === "function") {
+      try { comp.click(); cleared.push("nexacro-btn:" + id.slice(-40)); return; } catch (e) {}
+    }
+  });
+
+  // 2. "REXPERT PRINT" 텍스트로 팝업을 찾아 Nexacro 컴포넌트를 닫습니다.
+  //    팝업 ID에 "rexpert"가 안 들어 있을 수 있어 텍스트로 찾습니다.
+  if (!cleared.length) {
+    document.querySelectorAll("div").forEach((el) => {
+      try {
+        const t = (el.innerText || el.textContent || "").trim();
+        if (!/^REXPERT\\s*PRINT/i.test(t)) return;
+        if (t.length > 50) return;
+        let cur = el;
+        while (cur && cur !== document.body) {
+          const id = cur.id;
+          if (id && id.indexOf("mainframe") === 0) {
+            const comp = resolve(id);
+            if (comp && typeof comp.close === "function") {
+              try { comp.close(); cleared.push("rexpert-text:" + id.slice(-50)); } catch (e) {}
+              return;
+            }
+          }
+          cur = cur.parentElement;
+        }
+      } catch (e) {}
+    });
+  }
+
+  // 3. iframe 안의 미리보기도 닫습니다(닫기 단추가 있을 때만).
   document.querySelectorAll("iframe").forEach((fr) => {
     let doc = null;
     try { doc = fr.contentDocument; } catch (e) { return; }
     if (!doc) return;
-    // 미리보기인지 알아보는 표시: PDF 단추가 들어 있는 틀입니다.
-    if (!doc.querySelector(BUTTON)) return;
+    const src = String(fr.getAttribute("src") || "");
+    const hasPdfBtn = !!doc.querySelector(BUTTON);
+    const isReportFrame = /report|clip/i.test(src);
+    if (!hasPdfBtn && !isReportFrame) return;
 
     const closeBtn = doc.querySelector(CLOSE);
-    if (!closeBtn) { cleared.push("닫기없음"); return; }
-    try { closeBtn.click(); cleared.push("닫기"); } catch (e) { cleared.push("누르지못함"); }
+    if (closeBtn) {
+      try { closeBtn.click(); cleared.push("iframe-닫기"); } catch (e) { cleared.push("iframe-누르지못함"); }
+    } else if (isReportFrame) {
+      try { fr.src = fr.src; cleared.push("iframe-리로드"); } catch (e) { cleared.push("iframe-리로드실패"); }
+    } else {
+      cleared.push("iframe-닫기없음");
+    }
   });
 
   return JSON.stringify({ ok: true, cleared: cleared, alerts: takeAlerts() });

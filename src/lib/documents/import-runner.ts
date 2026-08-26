@@ -14,6 +14,7 @@ import { extractDocumentText } from "./extract-text";
 import { identifyDocument } from "./identify";
 import { classifyDocument } from "./classify";
 import { extractRiskAssessments } from "./extract-risk";
+import { extractWorklog } from "./extract-worklog";
 
 export const DOCUMENT_BUCKET = "care-documents";
 
@@ -126,7 +127,10 @@ export async function importDocuments(params: {
         });
         if (upErr) throw upErr;
 
-        const { error: insErr } = await db.from("care_documents").insert({
+        const worklog = docTypes.includes("업무수행일지")
+          ? extractWorklog(extracted.text) : null;
+
+        const { data: insData, error: insErr } = await db.from("care_documents").insert({
           filename,
           file_hash: hash,
           storage_path: storagePath,
@@ -140,8 +144,29 @@ export async function importDocuments(params: {
           care_recipient_id: match ? match.id : null,
           match_status: match ? "auto" : "unmatched",
           risk_assessments: risk.fall || risk.pressureUlcer ? risk : null,
-        });
+          document_date: worklog?.visitDate ?? null,
+        }).select("id").single();
         if (insErr) throw insErr;
+
+        if (worklog && match && insData) {
+          const SECTION_MAP: Record<string, string> = {
+            s9_opinion: "상담기록",
+            summary: "향후계획",
+          };
+          const rows = worklog.items
+            .filter((it) => it.code === "s9_opinion" || it.code === "summary")
+            .map((it) => ({
+              care_recipient_id: match.id,
+              document_id: insData.id,
+              section: SECTION_MAP[it.code] ?? it.label,
+              heading: it.label,
+              body: it.text,
+              document_date: worklog.visitDate,
+            }));
+          if (rows.length) {
+            await db.from("narrative_samples").insert(rows);
+          }
+        }
 
         seen.add(hash);
         uploaded++;

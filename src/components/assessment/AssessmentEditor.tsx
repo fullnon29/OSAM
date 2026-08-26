@@ -60,6 +60,9 @@ export default function AssessmentEditor({
   const [assistingSection, setAssistingSection] = useState<string | null>(null);
   // 풀어쓰기 전에 적어 두셨던 메모. 되돌릴 수 있게 남겨 둡니다.
   const [notesBackup, setNotesBackup] = useState<Record<string, string>>({});
+  const [worklogRefs, setWorklogRefs] = useState<
+    { section: string; body: string; yearMonth: string | null; notable: boolean }[]
+  >([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineNote, setOfflineNote] = useState<string | null>(null);
@@ -100,6 +103,7 @@ export default function AssessmentEditor({
     setAiSummary(json.aiSummary);
     setFinalSummary(json.aiSummary);
     setReferencedPast(json.referencedPastRecords ?? 0);
+    setWorklogRefs(json.worklogRefs ?? []);
   }
 
   /** 한 항목의 판단근거를 오샘 서술형식으로 채웁니다. */
@@ -362,6 +366,34 @@ export default function AssessmentEditor({
             placeholder="총평 생성 버튼을 누르면 초안이 채워집니다. 자유롭게 수정하세요."
           />
         </div>
+
+        {worklogRefs.length > 0 && (
+          <div className="worklog-refs" style={{ marginTop: 20 }}>
+            <h4 style={{ fontSize: 14, color: "var(--pine-deep)", marginBottom: 8 }}>
+              업무수행일지 참조 ({worklogRefs.length}건)
+            </h4>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {worklogRefs.map((ref, i) => (
+                <li
+                  key={i}
+                  style={{
+                    padding: "6px 0",
+                    borderBottom: "1px solid var(--border-light, #eee)",
+                    color: ref.notable ? "#d32f2f" : "inherit",
+                    fontWeight: ref.notable ? 600 : 400,
+                    fontSize: 14,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <span style={{ fontWeight: 600, marginRight: 6 }}>
+                    [{ref.yearMonth ?? "날짜 미상"}·{ref.section}]
+                  </span>
+                  {ref.body}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="compliance-box" style={{ marginTop: 20 }}>
           <h4>

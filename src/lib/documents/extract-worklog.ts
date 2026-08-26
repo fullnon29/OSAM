@@ -212,6 +212,24 @@ function extractConsult(rawText: string): WorklogItem | null {
   return { label: "수급자(보호자) 상담", code: "s9_opinion", text };
 }
 
+/** 향후계획 및 기타사항. 다음 욕구사정 때 살펴볼 점의 밑감입니다. */
+function extractFuturePlan(rawText: string): WorklogItem | null {
+  const m = rawText.match(
+    /7\s*\.\s*향후계획\s*및\s*기타사항\s*1?([\s\S]*?)(?=8\s*\.\s*|급여제공자|$)/
+  );
+  if (!m) return null;
+  const text = joinLines(m[1].split("\n"));
+  if (text.length < 5) return null;
+  return { label: "향후계획 및 기타사항", code: "summary", text };
+}
+
+/** 특이점 키워드. 이 낱말이 있으면 총평에 빨간 강조로 표시됩니다. */
+const NOTABLE_KEYWORDS = /약화|변화|호소|병원|기력|낙상|욕창|악화/;
+
+export function hasNotableKeyword(text: string): boolean {
+  return NOTABLE_KEYWORDS.test(text);
+}
+
 /** 업무수행일지에서 욕구사정에 쓸 서술을 읽어 냅니다. */
 export function extractWorklog(rawText: string): Worklog | null {
   if (!rawText) return null;
@@ -220,5 +238,7 @@ export function extractWorklog(rawText: string): Worklog | null {
 
   const consult = extractConsult(rawText);
   if (consult) result.items.push(consult);
+  const plan = extractFuturePlan(rawText);
+  if (plan) result.items.push(plan);
   return result;
 }

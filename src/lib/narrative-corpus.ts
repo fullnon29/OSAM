@@ -104,6 +104,23 @@ export async function getRecipientNarratives(
   return data as NarrativeSample[];
 }
 
+/** 일지 6·7항(상담기록·향후계획)을 최신순으로 가져옵니다. */
+export async function getWorklogNotes(
+  db: SupabaseClient,
+  recipientId: string,
+  limit = 24
+): Promise<NarrativeSample[]> {
+  const { data, error } = await db
+    .from("narrative_samples")
+    .select("section, body, document_date")
+    .eq("care_recipient_id", recipientId)
+    .in("section", ["상담기록", "향후계획"])
+    .order("document_date", { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data as NarrativeSample[];
+}
+
 /** 예문을 AI에게 보여 줄 글로 만듭니다. */
 export function formatHouseSamples(samples: Record<string, string[]>): string {
   const parts: string[] = [];

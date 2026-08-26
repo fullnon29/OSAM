@@ -242,7 +242,7 @@ ipcMain.handle("record-state", () => isRecording());
  */
 ipcMain.handle(
   "auto-fetch",
-  async (event, opts: { onlyOne: boolean; reason: string; saveDir: string }) => {
+  async (event, opts: { onlyOne: boolean; reason: string; saveDir: string; latestOnly?: boolean; dateFrom?: string; dateTo?: string }) => {
     // 진행 내역을 파일로도 남깁니다. 화면에만 뿌리면 무엇이 어긋났는지
     // 나중에 되짚을 수 없고, 받은 기록을 센터가 확인할 수도 없습니다.
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
@@ -264,7 +264,7 @@ ipcMain.handle(
     const result = await runAutomation(opts.onlyOne, opts.reason, (log) => {
       append(`[${log.kind}] ${log.text}`);
       event.sender.send("auto-log", log);
-    });
+    }, opts.latestOnly ?? false, opts.dateFrom, opts.dateTo);
 
     append("");
     append(`끝 ${new Date().toLocaleString("ko-KR")}`);
