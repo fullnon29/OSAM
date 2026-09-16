@@ -27,19 +27,28 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   const articles = await fetchRelevantNhisArticles();
 
+  // 이미 받아 둔 글은 한 번에 조회합니다.
+  // 한 건씩 물어보면 수십 번 오가느라 제한 시간(60초)을 넘길 수 있습니다.
+  const { data: existingRows } = await admin
+    .from("posts")
+    .select("source_id")
+    .eq("source", "nhis")
+    .in(
+      "source_id",
+      articles.map((a) => a.articleNo)
+    );
+  const already = new Set(
+    ((existingRows ?? []) as { source_id: string | null }[])
+      .map((row) => row.source_id)
+      .filter((id): id is string => !!id)
+  );
+
   let imported = 0;
   let skipped = 0;
   const errors: string[] = [];
 
   for (const article of articles) {
-    const { data: existing } = await admin
-      .from("posts")
-      .select("id")
-      .eq("source", "nhis")
-      .eq("source_id", article.articleNo)
-      .maybeSingle();
-
-    if (existing) {
+    if (already.has(article.articleNo)) {
       skipped++;
       continue;
     }
@@ -56,7 +65,8 @@ export async function GET(request: Request) {
       excerpt: content.slice(0, 120).replace(/\n/g, " "),
       content,
       read_minutes: estimateReadMinutes(content),
-      is_published: false,
+      // 원장님 결정: 공단 보도자료는 검토 없이 바로 홈페이지에 올립니다.
+      is_published: true,
       published_at: toIsoDate(article.date),
       source: "nhis",
       source_id: article.articleNo,

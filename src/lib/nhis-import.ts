@@ -2,9 +2,16 @@ import "server-only";
 import * as cheerio from "cheerio";
 import { extractText, getDocumentProxy } from "unpdf";
 
-const LIST_URL =
-  "https://www.nhis.or.kr/nhis/together/wbhaea01600m01.do?mode=list";
 const BASE_URL = "https://www.nhis.or.kr/nhis/together/wbhaea01600m01.do";
+
+/**
+ * 한 번에 살펴볼 보도자료 건수.
+ *
+ * 공단 목록은 기본이 한 쪽에 10건인데, 공단이 한 주에 10건 넘게 올리면
+ * 다음 수집(다음 주 월요일) 전에 목록 첫 쪽에서 밀려나 영영 못 받습니다.
+ * 50건이면 두 달 넘게 거슬러 보므로 한 주를 통째로 거르더라도 놓치지 않습니다.
+ */
+const SCAN_COUNT = 50;
 const UA = "Mozilla/5.0 (compatible; OsamNewsBot/1.0)";
 
 // 어르신 재가/장기요양 돌봄 센터와 관련 있는 보도자료만 골라옵니다.
@@ -28,8 +35,11 @@ export type NhisArticle = {
   sourceUrl: string;
 };
 
-export async function fetchRelevantNhisArticles(): Promise<NhisArticle[]> {
-  const res = await fetch(LIST_URL, { headers: { "User-Agent": UA } });
+export async function fetchRelevantNhisArticles(
+  scanCount = SCAN_COUNT
+): Promise<NhisArticle[]> {
+  const listUrl = `${BASE_URL}?mode=list&articleLimit=${scanCount}&article.offset=0`;
+  const res = await fetch(listUrl, { headers: { "User-Agent": UA } });
   if (!res.ok) throw new Error(`NHIS 목록 조회 실패: ${res.status}`);
   const html = await res.text();
   const $ = cheerio.load(html);
