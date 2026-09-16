@@ -1,10 +1,25 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatKst } from "@/lib/format";
 import type { Recipient } from "./RecipientsBoard";
 import RecipientDocuments, { type CareDocument } from "./RecipientDocuments";
 import RecipientRiskHistory, { type RiskRecord } from "./RecipientRiskHistory";
+
+type FormState = {
+  name: string;
+  birth_date: string;
+  gender: string;
+  ltc_grade: string;
+  ltc_number: string;
+  address: string;
+  guardian_name: string;
+  guardian_phone: string;
+  memo: string;
+  is_active: boolean;
+};
 
 export type AssessmentSummary = {
   id: string;
@@ -31,6 +46,53 @@ export default function RecipientDetailBoard({
   documents: CareDocument[];
   riskRecords: RiskRecord[];
 }) {
+  const router = useRouter();
+  const [form, setForm] = useState<FormState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function openEditor() {
+    setError(null);
+    setForm({
+      name: recipient.name,
+      birth_date: recipient.birth_date ?? "",
+      gender: recipient.gender ?? "",
+      ltc_grade: recipient.ltc_grade ?? "",
+      ltc_number: recipient.ltc_number ?? "",
+      address: recipient.address ?? "",
+      guardian_name: recipient.guardian_name ?? "",
+      guardian_phone: recipient.guardian_phone ?? "",
+      memo: recipient.memo ?? "",
+      is_active: recipient.is_active,
+    });
+  }
+
+  async function save() {
+    if (!form) return;
+    if (!form.name.trim()) {
+      setError("성명은 비울 수 없습니다.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+
+    const res = await fetch(`/api/assessment/recipients/${recipient.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const json = await res.json().catch(() => ({}));
+    setSaving(false);
+
+    if (!res.ok) {
+      setError(json.error || "저장 중 오류가 발생했습니다.");
+      return;
+    }
+
+    setForm(null);
+    router.refresh();
+  }
+
   return (
     <div className="app-wrap">
       <Link
@@ -49,11 +111,17 @@ export default function RecipientDetailBoard({
             {recipient.gender === "M" ? "남" : recipient.gender === "F" ? "여" : "성별 미상"} ·{" "}
             {recipient.ltc_grade ?? "등급 미상"}
             {recipient.ltc_number ? ` · 인정번호 ${recipient.ltc_number}` : ""}
+            {recipient.is_active ? "" : " · 종료"}
           </p>
         </div>
-        <Link className="btn small" href={`/assessment/recipients/${recipient.id}/assessments/new`}>
-          + 새 회차 작성
-        </Link>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn outline small" type="button" style={{ width: "auto" }} onClick={openEditor}>
+            정보 수정
+          </button>
+          <Link className="btn small" href={`/assessment/recipients/${recipient.id}/assessments/new`}>
+            + 새 회차 작성
+          </Link>
+        </div>
       </div>
 
       <div className="detail-card" style={{ marginBottom: 24 }}>
@@ -67,12 +135,10 @@ export default function RecipientDetailBoard({
             {recipient.guardian_name ?? "-"} {recipient.guardian_phone ? `(${recipient.guardian_phone})` : ""}
           </div>
         </div>
-        {recipient.memo && (
-          <div className="info-line">
-            <div className="k">비고</div>
-            <div>{recipient.memo}</div>
-          </div>
-        )}
+        <div className="info-line">
+          <div className="k">비고</div>
+          <div>{recipient.memo ?? "-"}</div>
+        </div>
       </div>
 
       <h3 style={{ fontSize: 16, color: "var(--pine-deep)", marginBottom: 14 }}>
@@ -133,6 +199,117 @@ export default function RecipientDetailBoard({
       <div style={{ marginTop: 8 }}>
         <RecipientDocuments documents={documents} />
       </div>
+
+      {form && (
+        <div className="modal-bg active" onClick={() => setForm(null)}>
+          <div
+            className="cert edit-modal-box"
+            style={{ maxWidth: 420 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="close-x" type="button" onClick={() => setForm(null)}>
+              ✕
+            </button>
+            <h2 style={{ fontSize: 18 }}>어르신 정보 수정</h2>
+            {error && <div className="form-error">{error}</div>}
+
+            <label>성명</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+
+            <label>생년월일</label>
+            <input
+              type="date"
+              value={form.birth_date}
+              onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
+            />
+
+            <label>성별</label>
+            <select
+              value={form.gender}
+              onChange={(e) => setForm({ ...form, gender: e.target.value })}
+            >
+              <option value="">선택 안 함</option>
+              <option value="M">남</option>
+              <option value="F">여</option>
+            </select>
+
+            <label>장기요양등급</label>
+            <input
+              type="text"
+              value={form.ltc_grade}
+              onChange={(e) => setForm({ ...form, ltc_grade: e.target.value })}
+              placeholder="예: 3등급"
+            />
+
+            <label>장기요양인정번호</label>
+            <input
+              type="text"
+              value={form.ltc_number}
+              onChange={(e) => setForm({ ...form, ltc_number: e.target.value })}
+            />
+
+            <label>주소</label>
+            <input
+              type="text"
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+            />
+
+            <label>보호자 성명</label>
+            <input
+              type="text"
+              value={form.guardian_name}
+              onChange={(e) => setForm({ ...form, guardian_name: e.target.value })}
+            />
+
+            <label>보호자 연락처</label>
+            <input
+              type="text"
+              value={form.guardian_phone}
+              onChange={(e) => setForm({ ...form, guardian_phone: e.target.value })}
+            />
+
+            <label>비고</label>
+            <textarea
+              value={form.memo}
+              onChange={(e) => setForm({ ...form, memo: e.target.value })}
+            />
+
+            <label>이용 상태</label>
+            <select
+              value={form.is_active ? "1" : "0"}
+              onChange={(e) => setForm({ ...form, is_active: e.target.value === "1" })}
+            >
+              <option value="1">이용 중</option>
+              <option value="0">종료</option>
+            </select>
+
+            <div className="modal-actions">
+              <button
+                className="btn outline small"
+                type="button"
+                style={{ flex: 1 }}
+                onClick={() => setForm(null)}
+              >
+                취소
+              </button>
+              <button
+                className="btn small"
+                type="button"
+                style={{ flex: 1 }}
+                onClick={save}
+                disabled={saving}
+              >
+                {saving ? "저장 중..." : "저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
