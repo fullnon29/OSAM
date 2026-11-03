@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { POST_CATEGORIES, type Post } from "@/lib/posts";
+import { POST_CATEGORIES, SOURCE_LABEL, type Post } from "@/lib/posts";
 import { formatKst } from "@/lib/format";
 
 type FormState = {
@@ -111,6 +111,10 @@ export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
           </Link>
           <h1>소식·정보 게시글 관리</h1>
           <p>홈페이지 소식·정보 섹션에 노출되는 글을 작성/수정/삭제합니다.</p>
+          <p style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+            자동수집 — 매일 오전 9시에 공단 보도자료 · 복지부 보도자료 · 장기요양
+            법령자료실을 살펴 새 글을 바로 공개합니다. 「출처」 칸의 이름을 누르면 원문이 열립니다.
+          </p>
         </div>
         <button className="btn small" type="button" onClick={openCreate}>
           + 새 글 작성
@@ -146,14 +150,14 @@ export default function PostsAdminBoard({ posts }: { posts: Post[] }) {
                 </span>
               </td>
               <td>
-                {post.source === "nhis" ? (
+                {post.source && SOURCE_LABEL[post.source] ? (
                   <a
                     href={post.source_url ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: "var(--ochre)", fontWeight: 700, fontSize: 12.5 }}
                   >
-                    자동수집(공단) ↗
+                    자동수집({SOURCE_LABEL[post.source]}) ↗
                   </a>
                 ) : (
                   <span style={{ color: "var(--ink-soft)", fontSize: 12.5 }}>직접 작성</span>
