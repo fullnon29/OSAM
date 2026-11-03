@@ -22,8 +22,9 @@ async function buildCertificatePdf(params: {
   courseName: string;
   completedAt: Date;
   certNo: string;
+  signaturePng?: Uint8Array;
 }) {
-  const { employeeName, courseName, completedAt, certNo } = params;
+  const { employeeName, courseName, completedAt, certNo, signaturePng } = params;
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const page = doc.addPage([595, 420]); // A5 가로
@@ -67,8 +68,23 @@ async function buildCertificatePdf(params: {
 
   const dateStr = formatKst(completedAt.toISOString());
   drawTextRun(page, `이수일시: ${dateStr}`, 60, 60, regular, 10, ink);
-  drawTextRun(page, `번호 ${certNo}`, 420, 60, regular, 10, ink);
+  // 숫자·영문 대문자가 섞인 번호는 일부 뷰어가 간격을 벌려 그리므로 한 글자씩 놓는다.
+  drawTextRun(page, "번호", 420, 60, regular, 10, ink);
+  let nx = 420 + measureText("번호 ", regular, 10);
+  for (const ch of certNo) {
+    page.drawText(ch, { x: nx, y: 60, size: 10, font: regular, color: ink });
+    nx += regular.widthOfTextAtSize(ch, 10);
+  }
   drawTextRun(page, "오샘재가복지센터", 60, 40, regular, 10, ink);
+
+  // 앱에서 받은 본인 서명 (평가 증빙용)
+  if (signaturePng) {
+    const sig = await doc.embedPng(signaturePng);
+    const h = 44;
+    const w = Math.min(150, (sig.width / sig.height) * h);
+    drawTextRun(page, "본인 서명", 300 - measureText("본인 서명", regular, 9) / 2, 150, regular, 9, ink);
+    page.drawImage(sig, { x: 300 - w / 2, y: 100, width: w, height: h });
+  }
 
   return doc.save();
 }
@@ -81,6 +97,11 @@ export async function recordCompletion(
     courseId: string;
     courseName: string;
     completedAt?: Date;
+    // 평가 길잡이 앱에서 이수한 경우
+    signaturePng?: Uint8Array;
+    confirmText?: string;
+    source?: "web" | "app" | "admin";
+    deviceInfo?: string;
   }
 ) {
   const completedAt = params.completedAt ?? new Date();
@@ -90,7 +111,17 @@ export async function recordCompletion(
     courseName: params.courseName,
     completedAt,
     certNo,
+    signaturePng: params.signaturePng,
   });
+
+  let signaturePath: string | null = null;
+  if (params.signaturePng) {
+    signaturePath = `${params.employeeId}/${params.courseId}.png`;
+    const { error: sigError } = await admin.storage
+      .from("signatures")
+      .upload(signaturePath, params.signaturePng, { contentType: "image/png", upsert: true });
+    if (sigError) throw sigError;
+  }
 
   const path = `${params.employeeId}/${params.courseId}.pdf`;
   const { error: uploadError } = await admin.storage
@@ -107,6 +138,15 @@ export async function recordCompletion(
         completed_at: completedAt.toISOString(),
         cert_no: certNo,
         cert_pdf_url: path,
+        // 0012 마이그레이션 전에도 홈페이지 이수가 깨지지 않도록, 새 칸은 쓸 때만 넣는다.
+        ...(params.source && params.source !== "web"
+          ? {
+              signature_path: signaturePath,
+              confirm_text: params.confirmText ?? null,
+              source: params.source,
+              device_info: params.deviceInfo ?? null,
+            }
+          : {}),
       },
       { onConflict: "employee_id,course_id" }
     )

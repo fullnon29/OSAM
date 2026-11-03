@@ -23,7 +23,7 @@ export default async function TrainingHome() {
 
   const { data: courses } = await supabase
     .from("courses")
-    .select("id, name, category, duration_min")
+    .select("*")
     .eq("is_active", true)
     .order("sort_order");
 
@@ -47,7 +47,7 @@ export default async function TrainingHome() {
       <TopBar name={profile.name} roleLabel={roleLabel} />
       <CourseBoard
         employeeName={profile.name}
-        courses={courses ?? []}
+        courses={(courses ?? []).filter((c) => !c.guide_key)}
         completions={completionMap}
       />
     </>

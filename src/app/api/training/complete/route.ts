@@ -30,11 +30,17 @@ export async function POST(request: Request) {
 
   const { data: course, error: courseError } = await admin
     .from("courses")
-    .select("id, name")
+    .select("*")
     .eq("id", courseId)
     .single();
   if (courseError || !course) {
     return NextResponse.json({ error: "교육 과정을 찾을 수 없습니다." }, { status: 404 });
+  }
+  if (course.guide_key) {
+    return NextResponse.json(
+      { error: "이 교육은 「평가 길잡이」 앱에서 서명하고 이수합니다." },
+      { status: 400 }
+    );
   }
 
   try {

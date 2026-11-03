@@ -6,7 +6,14 @@ import Link from "next/link";
 import CertModal, { type CertInfo } from "./CertModal";
 import { formatKst, toKstInputValue } from "@/lib/format";
 
-export type AdminCourse = { id: string; name: string };
+export type AdminCourse = {
+  id: string;
+  name: string;
+  method?: string | null;
+  instructor?: string | null;
+  content?: string | null;
+  guide_key?: string | null;
+};
 export type AdminEmployee = { id: string; name: string; dept: string | null };
 export type AdminCompletion = {
   employee_id: string;
@@ -25,6 +32,12 @@ export type AdminLog = {
 };
 
 const fmt = formatKst;
+
+const courseInfo = (c?: AdminCourse) => ({
+  method: c?.method ?? "",
+  instructor: c?.instructor ?? "",
+  content: c?.content ?? "",
+});
 
 export default function AdminBoard({
   courses,
@@ -50,6 +63,9 @@ export default function AdminBoard({
   const [editTime, setEditTime] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 교육 실시 대장에 들어갈 교육방법·강사명·교육내용
+  const [info, setInfo] = useState(() => courseInfo(courses[0]));
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
 
   const completionMap = useMemo(() => {
     const m = new Map<string, AdminCompletion>();
@@ -58,6 +74,25 @@ export default function AdminBoard({
   }, [completions]);
 
   const activeCourse = courses.find((c) => c.id === courseId);
+
+  function selectCourse(id: string) {
+    const c = courses.find((x) => x.id === id);
+    setCourseId(id);
+    setInfo(courseInfo(c));
+    setInfoMsg(null);
+  }
+
+  async function saveInfo() {
+    setInfoMsg("저장 중...");
+    const res = await fetch("/api/training/admin/course-info", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ courseId, ...info }),
+    });
+    const json = await res.json();
+    setInfoMsg(res.ok ? "저장했습니다." : json.error || "저장 중 오류가 발생했습니다.");
+    if (res.ok) router.refresh();
+  }
 
   function openEdit(employeeId: string, employeeName: string, currentTime: string) {
     setEditTarget({ employeeId, employeeName, courseId, currentTime });
@@ -130,7 +165,7 @@ export default function AdminBoard({
       <select
         className="select-course"
         value={courseId}
-        onChange={(e) => setCourseId(e.target.value)}
+        onChange={(e) => selectCourse(e.target.value)}
       >
         {courses.map((c) => (
           <option key={c.id} value={c.id}>
@@ -138,6 +173,48 @@ export default function AdminBoard({
           </option>
         ))}
       </select>
+
+      <div className="log-panel" style={{ marginTop: 0, marginBottom: 16 }}>
+        <h3>교육 실시 대장 (평가 증빙)</h3>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", margin: "4px 0 10px" }}>
+          매뉴얼 필수사항: 교육일자·교육방법·강사명·교육내용·참석자명(서명). 아래를 채운 뒤 PDF로 받아 제출하세요.
+          {activeCourse?.guide_key ? " 이 교육은 「평가 길잡이」 앱에서 직원이 서명하고 이수합니다." : ""}
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <input
+            placeholder="교육방법 (예: 자체교육)"
+            value={info.method}
+            onChange={(e) => setInfo({ ...info, method: e.target.value })}
+          />
+          <input
+            placeholder="강사명 (예: 시설장 홍길동)"
+            value={info.instructor}
+            onChange={(e) => setInfo({ ...info, instructor: e.target.value })}
+          />
+        </div>
+        <textarea
+          rows={2}
+          style={{ width: "100%", marginTop: 8 }}
+          placeholder="교육내용"
+          value={info.content}
+          onChange={(e) => setInfo({ ...info, content: e.target.value })}
+        />
+        <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 8 }}>
+          <button className="btn outline small" type="button" style={{ width: "auto" }} onClick={saveInfo}>
+            교육 정보 저장
+          </button>
+          <a
+            className="btn small"
+            style={{ width: "auto" }}
+            href={`/api/training/admin/register?courseId=${courseId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            교육 실시 대장 PDF
+          </a>
+          {infoMsg && <span style={{ fontSize: 12.5 }}>{infoMsg}</span>}
+        </div>
+      </div>
 
       <table className="admin-table">
         <thead>

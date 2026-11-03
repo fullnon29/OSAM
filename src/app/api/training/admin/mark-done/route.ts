@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       employeeName: employee.name,
       courseId: course.id,
       courseName: course.name,
+      source: "admin",
     });
     return NextResponse.json({ completion });
   } catch (err) {

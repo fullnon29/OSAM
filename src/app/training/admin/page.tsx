@@ -25,7 +25,7 @@ export default async function AdminPage() {
 
   const { data: courses } = await supabase
     .from("courses")
-    .select("id, name")
+    .select("*")
     .eq("is_active", true)
     .order("sort_order");
 

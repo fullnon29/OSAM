@@ -49,6 +49,39 @@ export default function EmployeesAdminBoard({
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 「평가 길잡이」 앱 연결 QR
+  const [qr, setQr] = useState<{ name: string; code: string; qr: string; expiresAt: string } | null>(null);
+
+  async function showQr(employeeId: string) {
+    const res = await fetch("/api/guide/link-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert(json.error || "QR 생성 중 오류가 발생했습니다.");
+      return;
+    }
+    setQr(json);
+  }
+
+  async function unlinkApp(employeeId: string, name: string) {
+    const res = await fetch(`/api/guide/devices?employeeId=${employeeId}`);
+    const json = await res.json();
+    const n = json.devices?.length ?? 0;
+    if (!n) {
+      alert(`${name} 님의 연결된 앱이 없습니다.`);
+      return;
+    }
+    if (!confirm(`${name} 님의 앱 연결 ${n}개를 해제할까요? (폰 분실·교체·퇴사 시) 다시 쓰려면 QR로 새로 연결해야 합니다.`)) return;
+    const r = await fetch("/api/guide/devices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId }),
+    });
+    alert(r.ok ? "연결을 해제했습니다." : "해제 중 오류가 발생했습니다.");
+  }
 
   async function save() {
     if (!form) return;
@@ -115,12 +148,13 @@ export default function EmployeesAdminBoard({
             <th>입사일</th>
             <th>상태</th>
             <th>등록일</th>
+            <th>평가 길잡이 앱</th>
           </tr>
         </thead>
         <tbody>
           {employees.length === 0 && (
             <tr>
-              <td colSpan={7} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
+              <td colSpan={8} style={{ textAlign: "center", color: "var(--ink-soft)" }}>
                 등록된 종사자가 없습니다.
               </td>
             </tr>
@@ -138,10 +172,48 @@ export default function EmployeesAdminBoard({
                 </span>
               </td>
               <td>{formatKst(emp.created_at)}</td>
+              <td>
+                {emp.is_active && (
+                  <>
+                    <button className="edit-link" type="button" onClick={() => showQr(emp.id)}>
+                      연결 QR
+                    </button>{" "}
+                    <button className="edit-link" type="button" onClick={() => unlinkApp(emp.id, emp.name)}>
+                      해제
+                    </button>
+                  </>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {qr && (
+        <div className="modal-bg active" onClick={() => setQr(null)}>
+          <div
+            className="cert edit-modal-box"
+            style={{ maxWidth: 380, textAlign: "center" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="close-x" type="button" onClick={() => setQr(null)}>
+              ✕
+            </button>
+            <h2 style={{ fontSize: 18 }}>{qr.name} 님 앱 연결</h2>
+            <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "6px 0 10px" }}>
+              선생님 폰에서 「평가 길잡이」 앱을 열고 「QR로 연결」을 눌러 이 화면을 비춰 주세요.
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qr.qr} alt="앱 연결 QR" style={{ width: 260, height: 260, margin: "0 auto" }} />
+            <p style={{ fontSize: 15, marginTop: 10 }}>
+              카메라가 안 되면 코드 입력: <b style={{ letterSpacing: 2 }}>{qr.code}</b>
+            </p>
+            <p style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+              {formatKst(qr.expiresAt)}까지 1번만 쓸 수 있습니다.
+            </p>
+          </div>
+        </div>
+      )}
 
       {form && (
         <div className="modal-bg active" onClick={() => setForm(null)}>
