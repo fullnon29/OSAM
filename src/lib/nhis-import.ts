@@ -1,6 +1,15 @@
 import "server-only";
 import * as cheerio from "cheerio";
-import { extractText, getDocumentProxy } from "unpdf";
+import {
+  getHtml,
+  isRelevant,
+  normalizeDate,
+  pdfText,
+  SINCE,
+  type NewsArticle,
+} from "./news-common";
+
+// 국민건강보험공단 보도자료.
 
 const BASE_URL = "https://www.nhis.or.kr/nhis/together/wbhaea01600m01.do";
 
@@ -8,43 +17,18 @@ const BASE_URL = "https://www.nhis.or.kr/nhis/together/wbhaea01600m01.do";
  * 한 번에 살펴볼 보도자료 건수.
  *
  * 공단 목록은 기본이 한 쪽에 10건인데, 공단이 한 주에 10건 넘게 올리면
- * 다음 수집(다음 주 월요일) 전에 목록 첫 쪽에서 밀려나 영영 못 받습니다.
- * 50건이면 두 달 넘게 거슬러 보므로 한 주를 통째로 거르더라도 놓치지 않습니다.
+ * 다음 수집 전에 목록 첫 쪽에서 밀려나 영영 못 받습니다.
+ * 50건이면 두 달 넘게 거슬러 보므로 하루 이틀 걸러도 놓치지 않습니다.
  */
 const SCAN_COUNT = 50;
-const UA = "Mozilla/5.0 (compatible; OsamNewsBot/1.0)";
 
-// 어르신 재가/장기요양 돌봄 센터와 관련 있는 보도자료만 골라옵니다.
-const RELEVANT_KEYWORDS = [
-  "장기요양",
-  "요양보호사",
-  "어르신",
-  "노인",
-  "방문요양",
-  "재가급여",
-  "치매",
-  "돌봄",
-];
-
-export type NhisArticle = {
-  articleNo: string;
-  title: string;
-  dept: string;
-  date: string; // YYYY.MM.DD
-  pdfAttachNo: string | null;
-  sourceUrl: string;
-};
-
-export async function fetchRelevantNhisArticles(
-  scanCount = SCAN_COUNT
-): Promise<NhisArticle[]> {
-  const listUrl = `${BASE_URL}?mode=list&articleLimit=${scanCount}&article.offset=0`;
-  const res = await fetch(listUrl, { headers: { "User-Agent": UA } });
-  if (!res.ok) throw new Error(`NHIS 목록 조회 실패: ${res.status}`);
-  const html = await res.text();
+export async function fetchNhisArticles(): Promise<NewsArticle[]> {
+  const html = await getHtml(
+    `${BASE_URL}?mode=list&articleLimit=${SCAN_COUNT}&article.offset=0`
+  );
   const $ = cheerio.load(html);
 
-  const articles: NhisArticle[] = [];
+  const articles: NewsArticle[] = [];
 
   $("tr").each((_, tr) => {
     const $tr = $(tr);
@@ -56,59 +40,31 @@ export async function fetchRelevantNhisArticles(
     if (!articleNo) return;
 
     const title = titleLink.text().trim();
+    if (!isRelevant(title)) return;
+
     const tds = $tr.find("> td");
-    const dept = $(tds[2]).text().trim();
-    const date = $(tds[3]).text().trim();
+    const date = normalizeDate($(tds[3]).text());
+    if (!date || date < SINCE) return;
 
     const pdfHref = $tr.find("a.file-down-btn.pdf").attr("href") || "";
-    const pdfAttachNo = pdfHref.match(/attachNo=(\d+)/)?.[1] ?? null;
+    const attachNo = pdfHref.match(/attachNo=(\d+)/)?.[1] ?? null;
+    const sourceUrl = `${BASE_URL}?mode=view&articleNo=${articleNo}`;
 
     articles.push({
-      articleNo,
+      source: "nhis",
+      sourceId: articleNo,
       title,
-      dept,
       date,
-      pdfAttachNo,
-      sourceUrl: `${BASE_URL}?mode=view&articleNo=${articleNo}`,
+      sourceUrl,
+      loadBody: async () => {
+        if (!attachNo) return { body: null };
+        const body = await pdfText(
+          `${BASE_URL}?mode=download&articleNo=${articleNo}&attachNo=${attachNo}`
+        );
+        return { body };
+      },
     });
   });
 
-  return articles.filter((a) =>
-    RELEVANT_KEYWORDS.some((kw) => a.title.includes(kw))
-  );
-}
-
-function cleanExtractedText(raw: string) {
-  return raw
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !/^-\s*\d+\s*-$/.test(line))
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-export async function extractArticleBody(
-  articleNo: string,
-  pdfAttachNo: string
-): Promise<string | null> {
-  const url = `${BASE_URL}?mode=download&articleNo=${articleNo}&attachNo=${pdfAttachNo}`;
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) return null;
-
-  const buf = new Uint8Array(await res.arrayBuffer());
-  try {
-    const pdf = await getDocumentProxy(buf);
-    const { text } = await extractText(pdf, { mergePages: true });
-    const cleaned = cleanExtractedText(text);
-    return cleaned || null;
-  } catch (err) {
-    console.error("PDF 텍스트 추출 실패", articleNo, err);
-    return null;
-  }
-}
-
-export function estimateReadMinutes(text: string) {
-  // 한국어 성인 평균 분당 500자 내외로 어림잡습니다.
-  return Math.max(1, Math.round(text.length / 500));
+  return articles;
 }
