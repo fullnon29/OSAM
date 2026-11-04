@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     .eq("birth_yymmdd", birth)
     .eq("phone", phone)
     .eq("is_active", true)
-    .in("role", ["employee", "social_worker"]);
+    .in("role", ["employee", "social_worker", "admin"]); // 시설장도 앱을 쓰면 새 직원으로 만들지 않고 관리자 계정에 연결
   const match = (candidates ?? []).filter((p) => normName(p.name) === name);
 
   let employee: { id: string; name: string };

@@ -131,6 +131,7 @@ export default function ScheduleAdminBoard({ schedules, staff }: { schedules: Sc
       });
       setNotice(`${monthLabel(month)} 일정표를 게시했습니다. 방문 ${json.saved}건 중 ${json.matched}건이 선생님 앱에 보입니다.`);
       setParsed(null);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "저장하지 못했습니다.");
@@ -176,7 +177,7 @@ export default function ScheduleAdminBoard({ schedules, staff }: { schedules: Sc
 
       <div className="log-panel" style={{ marginTop: 0, marginBottom: 20 }}>
         <h3>일정표 올리기</h3>
-        {error && <div className="form-error">{error}</div>}
+        {error && !parsed && <div className="form-error">{error}</div>}
         <input
           type="file"
           accept="application/pdf,.pdf"
@@ -274,6 +275,8 @@ export default function ScheduleAdminBoard({ schedules, staff }: { schedules: Sc
             <button className="btn small" type="button" style={{ width: "auto" }} disabled={busy} onClick={publish}>
               {busy ? "게시하는 중..." : `${month ? monthLabel(month) : ""} 일정표 게시`}
             </button>
+            {/* 표가 길어 위쪽 오류 칸이 화면 밖일 수 있어 버튼 옆에도 보인다 */}
+            {error && <div className="form-error" style={{ marginTop: 8 }}>{error}</div>}
           </div>
         )}
       </div>
