@@ -144,6 +144,49 @@ export async function ensureGuideCourse(admin: SupabaseClient, kind: string) {
   return created;
 }
 
+// ───── 정보 입력 연결 · 담당 어르신 ─────
+export const normName = (s: unknown) => String(s ?? "").replace(/\s/g, "");
+export const normPhone = (s: unknown) => String(s ?? "").replace(/\D/g, "");
+export const normBirth = (s: unknown) => String(s ?? "").replace(/\D/g, "");
+
+export type CareInput = { elderName: string; cautions: string };
+
+// 앱이 보낸 담당 어르신 목록 정리 (이름 없는 줄은 버림, 최대 30명)
+export function cleanCares(input: unknown): CareInput[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((c) => ({
+      elderName: String(c?.elderName ?? "").trim().slice(0, 50),
+      cautions: String(c?.cautions ?? "").trim().slice(0, 2000),
+    }))
+    .filter((c) => c.elderName)
+    .slice(0, 30);
+}
+
+// 담당 어르신 목록을 통째로 바꾼다
+export async function saveCares(admin: SupabaseClient, employeeId: string, cares: CareInput[]) {
+  const { error: delError } = await admin.from("guide_staff_cares").delete().eq("employee_id", employeeId);
+  if (delError) throw delError;
+  if (!cares.length) return;
+  const { error } = await admin.from("guide_staff_cares").insert(
+    cares.map((c, i) => ({ employee_id: employeeId, elder_name: c.elderName, cautions: c.cautions || null, sort_order: i }))
+  );
+  if (error) throw error;
+}
+
+export async function loadCares(admin: SupabaseClient, employeeId: string): Promise<CareInput[]> {
+  const { data } = await admin
+    .from("guide_staff_cares")
+    .select("elder_name, cautions")
+    .eq("employee_id", employeeId)
+    .order("sort_order");
+  return (data ?? []).map((c) => ({ elderName: c.elder_name, cautions: c.cautions ?? "" }));
+}
+
+export function clientIp(request: Request) {
+  return (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+}
+
 // data:image/png;base64,... → 바이트. 비었거나 너무 크면 null.
 export function decodeSignature(dataUrl: unknown): Uint8Array | null {
   if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/png;base64,")) return null;

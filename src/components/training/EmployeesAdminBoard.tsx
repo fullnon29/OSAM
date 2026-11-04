@@ -66,6 +66,40 @@ export default function EmployeesAdminBoard({
     setQr(json);
   }
 
+  // 「평가 길잡이」 앱 정보: 연결 확인용 생년월일·전화번호, 선생님이 입력한 담당 어르신·주의점
+  const [info, setInfo] = useState<{
+    employeeId: string;
+    name: string;
+    birth: string;
+    phone: string;
+    cares: { elderName: string; cautions: string }[];
+    devices: { link_method: string; created_at: string; last_seen_at: string | null }[];
+  } | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
+
+  async function openInfo(employeeId: string, name: string) {
+    const res = await fetch(`/api/guide/staff?employeeId=${employeeId}`);
+    const json = await res.json();
+    if (!res.ok) {
+      alert(json.error || "불러오기 중 오류가 발생했습니다.");
+      return;
+    }
+    setInfoMsg(null);
+    setInfo({ employeeId, name, ...json });
+  }
+
+  async function saveInfo() {
+    if (!info) return;
+    setInfoMsg("저장 중...");
+    const res = await fetch("/api/guide/staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId: info.employeeId, birth: info.birth, phone: info.phone }),
+    });
+    const json = await res.json();
+    setInfoMsg(res.ok ? "저장했습니다. 이제 선생님이 앱에서 성함·생년월일·전화번호로 연결할 수 있습니다." : json.error || "저장 중 오류가 발생했습니다.");
+  }
+
   async function unlinkApp(employeeId: string, name: string) {
     const res = await fetch(`/api/guide/devices?employeeId=${employeeId}`);
     const json = await res.json();
@@ -175,6 +209,9 @@ export default function EmployeesAdminBoard({
               <td>
                 {emp.is_active && (
                   <>
+                    <button className="edit-link" type="button" onClick={() => openInfo(emp.id, emp.name)}>
+                      앱 정보
+                    </button>{" "}
                     <button className="edit-link" type="button" onClick={() => showQr(emp.id)}>
                       연결 QR
                     </button>{" "}
@@ -188,6 +225,62 @@ export default function EmployeesAdminBoard({
           ))}
         </tbody>
       </table>
+
+      {info && (
+        <div className="modal-bg active" onClick={() => setInfo(null)}>
+          <div className="cert edit-modal-box" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+            <button className="close-x" type="button" onClick={() => setInfo(null)}>
+              ✕
+            </button>
+            <h2 style={{ fontSize: 18 }}>{info.name} 님 · 평가 길잡이 앱</h2>
+            <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 4 }}>
+              선생님이 앱 첫 화면에서 입력한 성함·생년월일·전화번호가 여기 등록한 것과 같으면 QR 없이 연결됩니다.
+            </p>
+            <label>생년월일 6자리</label>
+            <input
+              inputMode="numeric"
+              placeholder="예: 650312"
+              value={info.birth}
+              onChange={(e) => setInfo({ ...info, birth: e.target.value })}
+            />
+            <label>전화번호</label>
+            <input
+              inputMode="tel"
+              placeholder="예: 010-1234-5678"
+              value={info.phone}
+              onChange={(e) => setInfo({ ...info, phone: e.target.value })}
+            />
+            <button className="btn small" type="button" style={{ width: "auto", marginTop: 10 }} onClick={saveInfo}>
+              연결 정보 저장
+            </button>
+            {infoMsg && <p style={{ fontSize: 12.5, marginTop: 6 }}>{infoMsg}</p>}
+
+            <h3 style={{ fontSize: 15, marginTop: 18 }}>담당 어르신 · 케어 시 주의점 (선생님 입력)</h3>
+            {info.cares.length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>아직 입력한 어르신이 없습니다.</p>
+            ) : (
+              info.cares.map((c, i) => (
+                <div key={i} style={{ fontSize: 13, padding: "8px 0", borderBottom: "1px solid var(--line, #ddd)" }}>
+                  <b>{c.elderName}</b>
+                  <div style={{ whiteSpace: "pre-line", color: "var(--ink-soft)" }}>{c.cautions || "(주의점 없음)"}</div>
+                </div>
+              ))
+            )}
+
+            <h3 style={{ fontSize: 15, marginTop: 18 }}>연결된 앱</h3>
+            {info.devices.length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>연결된 앱이 없습니다.</p>
+            ) : (
+              info.devices.map((d, i) => (
+                <div key={i} style={{ fontSize: 13 }}>
+                  {d.link_method === "info" ? "정보 입력으로 연결" : "QR로 연결"} · {formatKst(d.created_at)}
+                  {d.last_seen_at ? ` · 마지막 사용 ${formatKst(d.last_seen_at)}` : ""}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {qr && (
         <div className="modal-bg active" onClick={() => setQr(null)}>

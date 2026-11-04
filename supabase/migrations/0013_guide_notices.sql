@@ -28,3 +28,9 @@ create policy "guide_notices_admin" on public.guide_notices
 drop policy if exists "guide_notice_reads_admin_or_own" on public.guide_notice_reads;
 create policy "guide_notice_reads_admin_or_own" on public.guide_notice_reads
   for select using (public.is_admin() or employee_id = auth.uid());
+
+-- 사이트(API)가 새 표를 바로 알아보도록 표 목록을 새로 읽게 한다
+notify pgrst, 'reload schema';
+
+-- 확인용: 아래 결과가 두 줄 모두 표 이름으로 나오면 성공 (빈칸이면 실패)
+select to_regclass('public.guide_notices') as notices_table, to_regclass('public.guide_notice_reads') as reads_table;
