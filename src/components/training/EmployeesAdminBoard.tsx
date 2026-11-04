@@ -14,6 +14,7 @@ export type Employee = {
   is_active: boolean;
   created_at: string;
   role: string;
+  registered_via?: string;
 };
 
 type FormState = {
@@ -66,18 +67,24 @@ export default function EmployeesAdminBoard({
     setQr(json);
   }
 
-  // 「평가 길잡이」 앱 정보: 연결 확인용 생년월일·전화번호, 선생님이 입력한 담당 어르신·주의점
+  // 직원 정보 수정 창: 가입일·이름·부서·생년월일·전화번호·재직 여부, 앱에서 입력한 담당 어르신·주의점, 건강검진 사진
   const [info, setInfo] = useState<{
     employeeId: string;
     name: string;
+    dept: string;
+    hiredAt: string;
+    isActive: boolean;
     birth: string;
     phone: string;
+    registeredVia: string;
+    createdAt: string;
     cares: { elderName: string; cautions: string }[];
     devices: { link_method: string; created_at: string; last_seen_at: string | null }[];
+    healthChecks: { id: string; uploadedAt: string; url: string | null }[];
   } | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
 
-  async function openInfo(employeeId: string, name: string) {
+  async function openInfo(employeeId: string) {
     const res = await fetch(`/api/guide/staff?employeeId=${employeeId}`);
     const json = await res.json();
     if (!res.ok) {
@@ -85,7 +92,7 @@ export default function EmployeesAdminBoard({
       return;
     }
     setInfoMsg(null);
-    setInfo({ employeeId, name, ...json });
+    setInfo({ employeeId, ...json });
   }
 
   async function saveInfo() {
@@ -94,10 +101,35 @@ export default function EmployeesAdminBoard({
     const res = await fetch("/api/guide/staff", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId: info.employeeId, birth: info.birth, phone: info.phone }),
+      body: JSON.stringify({
+        action: "update",
+        employeeId: info.employeeId,
+        name: info.name,
+        dept: info.dept,
+        hiredAt: info.hiredAt,
+        birth: info.birth,
+        phone: info.phone,
+        isActive: info.isActive,
+      }),
     });
     const json = await res.json();
-    setInfoMsg(res.ok ? "저장했습니다. 이제 선생님이 앱에서 성함·생년월일·전화번호로 연결할 수 있습니다." : json.error || "저장 중 오류가 발생했습니다.");
+    if (!res.ok) return setInfoMsg(json.error || "저장 중 오류가 발생했습니다.");
+    setInfoMsg("저장했습니다.");
+    router.refresh();
+  }
+
+  async function deleteStaff() {
+    if (!info) return;
+    if (!confirm(`${info.name} 님을 명단에서 완전히 지울까요?\n교육 이수 기록·수료증·서명·건강검진 사진도 함께 지워지고 되돌릴 수 없습니다.\n(퇴사한 직원은 지우지 말고 「재직」 체크를 풀어 퇴사 처리하시면 기록이 남습니다.)`)) return;
+    const res = await fetch("/api/guide/staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", employeeId: info.employeeId }),
+    });
+    const json = await res.json();
+    if (!res.ok) return setInfoMsg(json.error || "삭제 중 오류가 발생했습니다.");
+    setInfo(null);
+    router.refresh();
   }
 
   async function unlinkApp(employeeId: string, name: string) {
@@ -195,7 +227,12 @@ export default function EmployeesAdminBoard({
           )}
           {employees.map((emp) => (
             <tr key={emp.id}>
-              <td>{emp.name}</td>
+              <td>
+                {emp.name}
+                {emp.registered_via === "app" && (
+                  <span className="status done" style={{ marginLeft: 6, fontSize: 11 }}>앱 가입</span>
+                )}
+              </td>
               <td>{emp.employee_no ?? "-"}</td>
               <td>{ROLE_LABEL[emp.role] ?? emp.role}</td>
               <td>{emp.dept ?? "-"}</td>
@@ -207,11 +244,11 @@ export default function EmployeesAdminBoard({
               </td>
               <td>{formatKst(emp.created_at)}</td>
               <td>
+                <button className="edit-link" type="button" onClick={() => openInfo(emp.id)}>
+                  정보 수정
+                </button>{" "}
                 {emp.is_active && (
                   <>
-                    <button className="edit-link" type="button" onClick={() => openInfo(emp.id, emp.name)}>
-                      앱 정보
-                    </button>{" "}
                     <button className="edit-link" type="button" onClick={() => showQr(emp.id)}>
                       연결 QR
                     </button>{" "}
@@ -232,10 +269,16 @@ export default function EmployeesAdminBoard({
             <button className="close-x" type="button" onClick={() => setInfo(null)}>
               ✕
             </button>
-            <h2 style={{ fontSize: 18 }}>{info.name} 님 · 평가 길잡이 앱</h2>
+            <h2 style={{ fontSize: 18 }}>{info.name} 님 정보</h2>
             <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 4 }}>
-              선생님이 앱 첫 화면에서 입력한 성함·생년월일·전화번호가 여기 등록한 것과 같으면 QR 없이 연결됩니다.
+              {info.registeredVia === "app" ? "평가 길잡이 앱에서 직접 가입" : "관리자 화면에서 등록"} · 등록 {formatKst(info.createdAt)}
             </p>
+            <label>이름</label>
+            <input value={info.name} onChange={(e) => setInfo({ ...info, name: e.target.value })} />
+            <label>부서</label>
+            <input value={info.dept} onChange={(e) => setInfo({ ...info, dept: e.target.value })} />
+            <label>가입일(입사일)</label>
+            <input type="date" value={info.hiredAt} onChange={(e) => setInfo({ ...info, hiredAt: e.target.value })} />
             <label>생년월일 6자리</label>
             <input
               inputMode="numeric"
@@ -250,10 +293,40 @@ export default function EmployeesAdminBoard({
               value={info.phone}
               onChange={(e) => setInfo({ ...info, phone: e.target.value })}
             />
-            <button className="btn small" type="button" style={{ width: "auto", marginTop: 10 }} onClick={saveInfo}>
-              연결 정보 저장
-            </button>
+            <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="checkbox"
+                style={{ width: "auto" }}
+                checked={info.isActive}
+                onChange={(e) => setInfo({ ...info, isActive: e.target.checked })}
+              />
+              재직 중 (풀면 퇴사 처리 · 앱 연결도 끊김, 교육 기록은 남음)
+            </label>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <button className="btn small" type="button" style={{ width: "auto" }} onClick={saveInfo}>
+                저장
+              </button>
+              <button className="btn outline small" type="button" style={{ width: "auto" }} onClick={deleteStaff}>
+                명단에서 완전 삭제
+              </button>
+            </div>
             {infoMsg && <p style={{ fontSize: 12.5, marginTop: 6 }}>{infoMsg}</p>}
+
+            <h3 style={{ fontSize: 15, marginTop: 18 }}>건강검진 결과 사진 (선생님 업로드)</h3>
+            {info.healthChecks.length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>아직 올린 사진이 없습니다.</p>
+            ) : (
+              info.healthChecks.map((h) => (
+                <div key={h.id} style={{ fontSize: 13, marginTop: 6 }}>
+                  {formatKst(h.uploadedAt)} 올림{" "}
+                  {h.url && (
+                    <a href={h.url} target="_blank" rel="noopener noreferrer">
+                      사진 보기
+                    </a>
+                  )}
+                </div>
+              ))
+            )}
 
             <h3 style={{ fontSize: 15, marginTop: 18 }}>담당 어르신 · 케어 시 주의점 (선생님 입력)</h3>
             {info.cares.length === 0 ? (

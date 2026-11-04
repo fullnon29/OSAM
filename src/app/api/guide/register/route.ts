@@ -1,4 +1,6 @@
+import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { STAFF_EMAIL_DOMAIN } from "@/lib/auth";
 import {
   cleanCares,
   clientIp,
@@ -14,34 +16,31 @@ import {
 
 export const OPTIONS = guidePreflight;
 
-const MAX_FAILS = 5;       // 같은 곳에서 30분 안에 5번 틀리면
-const FAIL_WINDOW_MIN = 30; // 30분 동안 막는다
+const MAX_SIGNUPS = 10;        // 같은 곳(인터넷 주소)에서 1시간에 새 가입은 10명까지
+const SIGNUP_WINDOW_MIN = 60;
 
-// 앱 최초 실행: 성함·생년월일·전화번호가 센터 등록 정보와 맞으면 연결하고, 담당 어르신을 저장한다.
+function kstToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date()); // YYYY-MM-DD
+}
+
+// 앱 최초 실행: 선생님이 현장에서 스스로 가입한다 (센터 사전 등록 불필요).
+// 성함·생년월일·전화번호가 같은 직원이 이미 있으면 그 계정에 연결하고, 없으면 새 직원으로 등록한다.
+// 명단 정리(중복·퇴사 삭제, 가입일 수정)는 관리자가 웹 「종사자 계정 관리」에서 한다.
 // body: { name, birth(yymmdd), phone, cares: [{ elderName, cautions }], consent: true, deviceInfo }
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   if (body.consent !== true) return guideJson(request, { error: "개인정보 수집·이용에 동의해 주세요." }, 400);
 
-  const name = normName(body.name);
+  const displayName = String(body.name ?? "").trim().replace(/\s+/g, " ").slice(0, 30);
+  const name = normName(displayName);
   const birth = normBirth(body.birth);
   const phone = normPhone(body.phone);
-  if (!name || birth.length !== 6 || phone.length < 10) {
+  if (!name || birth.length !== 6 || phone.length < 10 || phone.length > 11) {
     return guideJson(request, { error: "성함, 생년월일 6자리, 전화번호를 바르게 입력해 주세요." }, 400);
   }
 
   const admin = createAdminClient();
   const ip = clientIp(request);
-  const since = new Date(Date.now() - FAIL_WINDOW_MIN * 60_000).toISOString();
-  const { count: fails } = await admin
-    .from("guide_link_attempts")
-    .select("*", { count: "exact", head: true })
-    .eq("ip", ip)
-    .eq("ok", false)
-    .gte("created_at", since);
-  if ((fails ?? 0) >= MAX_FAILS) {
-    return guideJson(request, { error: `여러 번 맞지 않아 ${FAIL_WINDOW_MIN}분 동안 막혔습니다. 사무실에 문의하시거나 QR로 연결해 주세요.` }, 429);
-  }
 
   const { data: candidates } = await admin
     .from("profiles")
@@ -52,13 +51,50 @@ export async function POST(request: Request) {
     .in("role", ["employee", "social_worker"]);
   const match = (candidates ?? []).filter((p) => normName(p.name) === name);
 
-  if (match.length !== 1) {
-    await admin.from("guide_link_attempts").insert({ ip, ok: false });
-    return guideJson(request, {
-      error: "센터에 등록된 정보와 맞지 않습니다. 성함·생년월일·전화번호를 다시 확인하시거나 사무실에 문의해 주세요.",
-    }, 404);
+  let employee: { id: string; name: string };
+  let created = false;
+  if (match.length >= 1) {
+    employee = match[0];
+  } else {
+    const since = new Date(Date.now() - SIGNUP_WINDOW_MIN * 60_000).toISOString();
+    const { count } = await admin
+      .from("guide_link_attempts")
+      .select("*", { count: "exact", head: true })
+      .eq("ip", ip)
+      .eq("created_new", true)
+      .gte("created_at", since);
+    if ((count ?? 0) >= MAX_SIGNUPS) {
+      return guideJson(request, { error: "이곳에서 가입이 너무 많아 잠시 막혔습니다. 1시간 뒤에 다시 하시거나 사무실에 문의해 주세요." }, 429);
+    }
+
+    // 웹 로그인용이 아닌 앱 전용 계정 (아이디·비밀번호는 쓰지 않음, 관리자가 나중에 정리)
+    const { data: u, error: ue } = await admin.auth.admin.createUser({
+      email: `app-${randomBytes(6).toString("hex")}@${STAFF_EMAIL_DOMAIN}`,
+      password: randomBytes(24).toString("base64url"),
+      email_confirm: true,
+    });
+    if (ue || !u.user) {
+      console.error(ue);
+      return guideJson(request, { error: "가입 중 오류가 발생했습니다. 잠시 뒤 다시 해 주세요." }, 500);
+    }
+    const { error: pe } = await admin.from("profiles").insert({
+      id: u.user.id,
+      name: displayName,
+      role: "employee",
+      is_active: true,
+      birth_yymmdd: birth,
+      phone,
+      hired_at: kstToday(),
+      registered_via: "app",
+    });
+    if (pe) {
+      console.error(pe);
+      await admin.auth.admin.deleteUser(u.user.id);
+      return guideJson(request, { error: "가입 중 오류가 발생했습니다. 잠시 뒤 다시 해 주세요." }, 500);
+    }
+    employee = { id: u.user.id, name: displayName };
+    created = true;
   }
-  const employee = match[0];
 
   const token = newDeviceToken();
   const { error } = await admin.from("guide_devices").insert({
@@ -72,14 +108,14 @@ export async function POST(request: Request) {
     console.error(error);
     return guideJson(request, { error: "연결 중 오류가 발생했습니다." }, 500);
   }
-  await admin.from("guide_link_attempts").insert({ ip, ok: true, employee_id: employee.id });
+  await admin.from("guide_link_attempts").insert({ ip, ok: true, employee_id: employee.id, created_new: created });
 
   const cares = cleanCares(body.cares);
   try {
     if (cares.length) await saveCares(admin, employee.id, cares);
   } catch (err) {
     console.error(err);
-    return guideJson(request, { token, name: employee.name, warning: "연결은 되었지만 담당 어르신 저장에 실패했습니다. 「내 정보」에서 다시 저장해 주세요." });
+    return guideJson(request, { token, name: employee.name, created, warning: "연결은 되었지만 담당 어르신 저장에 실패했습니다. 「내 담당 어르신」에서 다시 저장해 주세요." });
   }
-  return guideJson(request, { token, name: employee.name });
+  return guideJson(request, { token, name: employee.name, created });
 }
