@@ -156,6 +156,9 @@ export default function AdminBoard({
           <Link className="btn outline small" href="/training/admin/employees">
             종사자 계정 관리
           </Link>
+          <Link className="btn outline small" href="/training/admin/notices">
+            앱 공지
+          </Link>
           <Link className="btn small" href="/training/admin/posts">
             소식·정보 글 관리
           </Link>
