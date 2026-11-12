@@ -49,7 +49,24 @@ export async function POST(request: Request) {
     .eq("phone", phone)
     .eq("is_active", true)
     .in("role", ["employee", "social_worker", "admin"]); // 시설장도 앱을 쓰면 새 직원으로 만들지 않고 관리자 계정에 연결
-  const match = (candidates ?? []).filter((p) => normName(p.name) === name);
+  let match = (candidates ?? []).filter((p) => normName(p.name) === name);
+
+  // 센터가 직원 명단(이름·전화번호만 있고 생년월일은 없음)으로 미리 등록해 둔 직원: 이름+전화번호가 같고
+  // 생년월일이 비어 있으면 그 직원에 연결하고, 지금 입력한 생년월일을 저장한다(다음부터는 세 가지가 모두 같아야 연결).
+  if (!match.length) {
+    const { data: pre } = await admin
+      .from("profiles")
+      .select("id, name")
+      .eq("phone", phone)
+      .is("birth_yymmdd", null)
+      .eq("is_active", true)
+      .in("role", ["employee", "social_worker"]);
+    const preMatch = (pre ?? []).filter((p) => normName(p.name) === name);
+    if (preMatch.length === 1) {
+      const { error: be } = await admin.from("profiles").update({ birth_yymmdd: birth }).eq("id", preMatch[0].id);
+      if (!be) match = preMatch;
+    }
+  }
 
   let employee: { id: string; name: string };
   let created = false;

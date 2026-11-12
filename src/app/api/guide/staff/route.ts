@@ -11,11 +11,17 @@ export async function GET(request: Request) {
   }
   const { admin } = result;
   const employeeId = new URL(request.url).searchParams.get("employeeId") ?? "";
-  const { data: p } = await admin
-    .from("profiles")
-    .select("name, dept, hired_at, is_active, birth_yymmdd, phone, registered_via, created_at")
-    .eq("id", employeeId)
-    .single();
+  // 친족케어·건강검진 칸(마이그레이션 0017)이 아직 없으면 그 두 칸 없이 읽는다
+  const baseCols = "name, dept, hired_at, is_active, birth_yymmdd, phone, registered_via, created_at";
+  let p: Record<string, unknown> | null = null;
+  {
+    const r1 = await admin.from("profiles").select(baseCols + ", kin_care, health_checked_at").eq("id", employeeId).single();
+    if (r1.data) p = r1.data as unknown as Record<string, unknown>;
+    else {
+      const r2 = await admin.from("profiles").select(baseCols).eq("id", employeeId).single();
+      p = (r2.data as unknown as Record<string, unknown> | null) ?? null;
+    }
+  }
   if (!p) return NextResponse.json({ error: "직원을 찾을 수 없습니다." }, { status: 404 });
   const { data: devices } = await admin
     .from("guide_devices")
@@ -42,6 +48,8 @@ export async function GET(request: Request) {
     phone: p.phone ?? "",
     registeredVia: p.registered_via,
     createdAt: p.created_at,
+    kinCare: p.kin_care === true,
+    healthCheckedAt: (p.health_checked_at as string | null | undefined) ?? "",
     cares: await loadCares(admin, employeeId),
     devices: devices ?? [],
     healthChecks,
