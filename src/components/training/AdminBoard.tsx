@@ -162,6 +162,9 @@ export default function AdminBoard({
           <Link className="btn outline small" href="/training/admin/schedule">
             앱 일정표
           </Link>
+          <Link className="btn outline small" href="/training/admin/memos">
+            앱 메모함
+          </Link>
           <Link className="btn small" href="/training/admin/posts">
             소식·정보 글 관리
           </Link>
