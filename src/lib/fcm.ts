@@ -54,7 +54,7 @@ export type PushResult = { sent: number; invalid: string[]; errors: string[] };
 /** tokens 로 같은 알림을 보냅니다. 더는 쓸 수 없는 토큰(앱 삭제 등)은 invalid 로 돌려줍니다. */
 export async function sendPush(
   tokens: string[],
-  msg: { title: string; body: string; data?: Record<string, string> }
+  msg: { title: string; body: string; data?: Record<string, string>; channelId?: string }
 ): Promise<PushResult> {
   const out: PushResult = { sent: 0, invalid: [], errors: [] };
   const sa = account();
@@ -69,7 +69,8 @@ export async function sendPush(
     out.errors.push(e instanceof Error ? e.message : String(e));
     return out;
   }
-  for (const token of tokens) {
+  // 한꺼번에 10대씩 보냅니다(직원 수십 명에게 보내도 몇 초 안에 끝나도록).
+  const sendOne = async (token: string) => {
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
       method: "POST",
       headers: { Authorization: `Bearer ${at}`, "Content-Type": "application/json" },
@@ -78,18 +79,19 @@ export async function sendPush(
           token,
           notification: { title: msg.title, body: msg.body },
           data: msg.data ?? {},
-          android: { priority: "HIGH", notification: { channel_id: "offday", sound: "default" } },
+          android: { priority: "HIGH", notification: { channel_id: msg.channelId ?? "offday", sound: "default" } },
         },
       }),
     });
     if (res.ok) {
       out.sent++;
-      continue;
+      return;
     }
     const j = (await res.json().catch(() => ({}))) as { error?: { status?: string; message?: string } };
     const status = j.error?.status ?? String(res.status);
     if (status === "UNREGISTERED" || status === "INVALID_ARGUMENT" || status === "NOT_FOUND") out.invalid.push(token);
     else out.errors.push(`${status}: ${j.error?.message ?? ""}`.slice(0, 200));
-  }
+  };
+  for (let i = 0; i < tokens.length; i += 10) await Promise.all(tokens.slice(i, i + 10).map(sendOne));
   return out;
 }

@@ -17,7 +17,7 @@ export type AdminNotice = {
   unread: string[];
 };
 
-const EMPTY = { title: "", body: "", linkUrl: "", requiresAck: true };
+const EMPTY = { title: "", body: "", linkUrl: "", requiresAck: true, push: true };
 
 export default function NoticesAdminBoard({ notices, total }: { notices: AdminNotice[]; total: number }) {
   const router = useRouter();
@@ -25,6 +25,7 @@ export default function NoticesAdminBoard({ notices, total }: { notices: AdminNo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   async function post(payload: object) {
     const res = await fetch("/api/guide/admin-notices", {
@@ -33,12 +34,21 @@ export default function NoticesAdminBoard({ notices, total }: { notices: AdminNo
       body: JSON.stringify(payload),
     });
     const json = await res.json();
+    if (res.ok && json.push) {
+      const p = json.push as { pushed: number; devices: number; errors: string[] };
+      setInfo(
+        p.devices === 0
+          ? "공지를 올렸습니다. 푸시를 받을 수 있는 폰이 아직 없어 앱 알림만 갑니다(새 앱을 설치하고 알림을 허용한 폰이 대상입니다)."
+          : `공지를 올렸습니다. 푸시를 ${p.devices}대 중 ${p.pushed}대에 보냈습니다.` + (p.errors.length ? ` (오류: ${p.errors[0]})` : "")
+      );
+    } else if (res.ok) setInfo("공지를 올렸습니다(푸시 알림은 보내지 않음).");
     return res.ok ? null : json.error || "처리 중 오류가 발생했습니다.";
   }
 
   async function save() {
     setSaving(true);
     setError(null);
+    setInfo(null);
     const err = await post(form);
     setSaving(false);
     if (err) return setError(err);
@@ -68,6 +78,7 @@ export default function NoticesAdminBoard({ notices, total }: { notices: AdminNo
       <div className="log-panel" style={{ marginTop: 0, marginBottom: 20 }}>
         <h3>새 공지 올리기</h3>
         {error && <div className="form-error">{error}</div>}
+        {info && <div style={{ background: "var(--accent-soft, #e9f3ef)", padding: "8px 12px", borderRadius: 8, fontSize: 14, marginTop: 8 }}>{info}</div>}
         <input
           placeholder="제목 (예: 11월 감염예방 교육 안내)"
           value={form.title}
@@ -94,6 +105,10 @@ export default function NoticesAdminBoard({ notices, total }: { notices: AdminNo
             onChange={(e) => setForm({ ...form, requiresAck: e.target.checked })}
           />
           선생님이 「확인했습니다」를 눌러야 하는 공지
+        </label>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, fontSize: 14 }}>
+          <input type="checkbox" checked={form.push} onChange={(e) => setForm({ ...form, push: e.target.checked })} />
+          선생님 폰에 푸시 알림 보내기
         </label>
         <button className="btn small" type="button" style={{ width: "auto", marginTop: 10 }} disabled={saving} onClick={save}>
           {saving ? "올리는 중..." : "공지 올리기"}

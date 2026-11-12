@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/require-admin";
+import { pushNotice } from "@/lib/guide-notice-push";
+
+export const maxDuration = 30;
 
 // 관리자: 앱 공지 올리기 / 내리기
 export async function POST(request: Request) {
@@ -25,16 +28,31 @@ export async function POST(request: Request) {
   if (link && !/^https?:\/\//.test(link)) {
     return NextResponse.json({ error: "링크는 http:// 또는 https:// 로 시작해야 합니다." }, { status: 400 });
   }
-  const { error } = await admin.from("guide_notices").insert({
-    title,
-    body: text,
-    link_url: link || null,
-    requires_ack: body.requiresAck !== false,
-    created_by: adminProfile.id,
-  });
-  if (error) {
+  const requiresAck = body.requiresAck !== false;
+  const { data: created, error } = await admin
+    .from("guide_notices")
+    .insert({
+      title,
+      body: text,
+      link_url: link || null,
+      requires_ack: requiresAck,
+      created_by: adminProfile.id,
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
     console.error(error);
     return NextResponse.json({ error: "저장 중 오류가 발생했습니다." }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  // 새 공지는 선생님 폰에 푸시로 알립니다(끄려면 push:false). 푸시가 실패해도 공지는 올라갑니다.
+  let push: { pushed: number; devices: number; errors: string[] } | null = null;
+  if (body.push !== false) {
+    try {
+      push = await pushNotice(admin, { id: created.id as string, title, body: text, requiresAck });
+    } catch (e) {
+      console.error(e);
+      push = { pushed: 0, devices: 0, errors: [e instanceof Error ? e.message : String(e)] };
+    }
+  }
+  return NextResponse.json({ ok: true, push });
 }
