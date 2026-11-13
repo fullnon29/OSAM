@@ -3,7 +3,7 @@ import { employeeFromRequest, guideJson, guidePreflight, normName } from "@/lib/
 export const OPTIONS = guidePreflight;
 
 type Caution = { text?: string; visible?: boolean };
-type Alloc = { label?: string; minutes?: number; visible?: boolean };
+type Alloc = { group?: string; label?: string; cycle?: string; minutes?: number; visible?: boolean };
 
 // 앱: 내 담당 어르신의 급여제공계획(센터가 「노출」로 지정한 유의사항·시간 분배와 센터 코멘트만).
 //  - 요양보호사: 내 일정에 방문이 있는 어르신 + 내 담당 어르신 목록의 어르신
@@ -49,9 +49,14 @@ export async function GET(request: Request) {
   for (const p of plans ?? []) {
     if (keys && !keys.has(p.elder_key as string)) continue;
     const cautions = ((p.cautions ?? []) as Caution[]).filter((c) => c.visible && String(c.text ?? "").trim()).map((c) => String(c.text).trim());
-    const time = ((p.time_alloc ?? []) as Alloc[])
-      .filter((t) => t.visible && String(t.label ?? "").trim())
-      .map((t) => ({ label: String(t.label).trim(), minutes: Number(t.minutes) || 0 }));
+    const allAlloc = ((p.time_alloc ?? []) as Alloc[]).filter((t) => String(t.label ?? "").trim());
+    const time = allAlloc
+      .filter((t) => t.visible)
+      .map((t) => ({ group: String(t.group ?? "").trim(), label: String(t.label).trim(), cycle: String(t.cycle ?? "").trim(), minutes: Number(t.minutes) || 0 }));
+    // 센터가 시간 분배 항목을 모두 보이게 한 경우에만, 매 방문(「일」 주기 항목) 합계를 함께 보냅니다(일부만 보이면 합계가 틀려 보이므로).
+    const dailyTotal = time.length && time.length === allAlloc.length
+      ? time.reduce((a, t) => { const m = /^일\s*(\d+)\s*회/.exec(t.cycle); return a + (m ? Number(m[1]) : 0) * t.minutes; }, 0)
+      : 0;
     const comment = String(p.center_comment ?? "").trim();
     if (!cautions.length && !time.length && !comment) continue;
     out.push({
@@ -61,6 +66,7 @@ export async function GET(request: Request) {
       to: p.applied_to,
       cautions,
       time,
+      dailyTotal,
       comment,
       updatedAt: p.updated_at,
     });
