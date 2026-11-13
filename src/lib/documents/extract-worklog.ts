@@ -147,7 +147,8 @@ function extractPdfForm(rawText: string): Worklog | null {
   }
   flush();
 
-  if (!items.length) return null;
+  // 3항(심신상태)이 체크 표시뿐이고 글이 없는 일지도 있습니다. 그래도 6항(상담)·7항(향후계획)에는 글이 있으므로
+  // 이 서식으로 읽은 것으로 보고 빈 목록을 돌려줍니다(호출한 쪽이 6·7항을 덧붙입니다).
   return { visitDate: parseVisitDate(rawText), items, form: "2026" };
 }
 
@@ -212,13 +213,39 @@ function extractConsult(rawText: string): WorklogItem | null {
   return { label: "수급자(보호자) 상담", code: "s9_opinion", text };
 }
 
+/**
+ * 7항(향후계획) 칸의 서식 글자와 맨 끝의 서명 줄을 지웁니다.
+ * 「서비스 욕구 변화 있음 / 변화 없음」 같은 체크 항목 이름이 본문과 섞여 들어와,
+ * 모든 일지에 「변화」라는 낱말이 있는 것처럼 보였습니다.
+ * 이미 저장된 글에도 같은 규칙을 쓸 수 있도록 따로 내보냅니다.
+ */
+const FORM_LABELS = [
+  /수급자\s*욕구\s*확인/g,
+  /서비스\s*욕구\s*변화\s*있음\s*변화\s*없음/g,
+  /수급자\s*심신상태\s*등\s*변화\s*있음/g,
+  /급여제공계획\s*재작성\s*여부/g,
+  /급여제공계획\s*유지/g,
+  /욕구조사\s*재실시\s*및\s*급여제공계획서\s*재작성/g,
+  /급여제공\s*관련\s*유의사항\s*및\s*세부계획/g,
+  /급여제공\s*관련/g,
+  /유의사항\s*및/g,
+  /세부계획/g,
+];
+
+export function cleanFuturePlan(text: string): string {
+  let t = text;
+  for (const re of FORM_LABELS) t = t.replace(re, " ");
+  t = t.replace(/수급자\(보호자\)\s*성명[\s\S]*$/, "");
+  return t.replace(/\s+/g, " ").trim();
+}
+
 /** 향후계획 및 기타사항. 다음 욕구사정 때 살펴볼 점의 밑감입니다. */
 function extractFuturePlan(rawText: string): WorklogItem | null {
   const m = rawText.match(
     /7\s*\.\s*향후계획\s*및\s*기타사항\s*1?([\s\S]*?)(?=8\s*\.\s*|급여제공자|$)/
   );
   if (!m) return null;
-  const text = joinLines(m[1].split("\n"));
+  const text = cleanFuturePlan(joinLines(m[1].split("\n")));
   if (text.length < 5) return null;
   return { label: "향후계획 및 기타사항", code: "summary", text };
 }
@@ -226,8 +253,11 @@ function extractFuturePlan(rawText: string): WorklogItem | null {
 /** 특이점 키워드. 이 낱말이 있으면 총평에 빨간 강조로 표시됩니다. */
 const NOTABLE_KEYWORDS = /약화|변화|호소|병원|기력|낙상|욕창|악화/;
 
+/** "변화 없으며", "낙상 없음", "호소하지 않으심" 처럼 키워드가 부정되어 있으면 특이점이 아닙니다. */
+const NEGATED = /(약화|변화|호소|병원|기력|낙상|욕창|악화)\s*(이|가|은|는|도|을|를)?\s*(전혀\s*)?(없|않|아니|보이지)/g;
+
 export function hasNotableKeyword(text: string): boolean {
-  return NOTABLE_KEYWORDS.test(text);
+  return NOTABLE_KEYWORDS.test(text.replace(NEGATED, ""));
 }
 
 /** 업무수행일지에서 욕구사정에 쓸 서술을 읽어 냅니다. */
@@ -240,5 +270,6 @@ export function extractWorklog(rawText: string): Worklog | null {
   if (consult) result.items.push(consult);
   const plan = extractFuturePlan(rawText);
   if (plan) result.items.push(plan);
-  return result;
+  // 읽을 글이 하나도 없으면 읽지 못한 것으로 봅니다(날짜만 남기지 않습니다).
+  return result.items.length ? result : null;
 }

@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cleanFuturePlan } from "./documents/extract-worklog";
 
 // 모아 둔 서술 문장을 꺼내 쓰는 곳.
 //
@@ -118,7 +119,18 @@ export async function getWorklogNotes(
     .order("document_date", { ascending: false, nullsFirst: false })
     .limit(limit);
   if (error || !data) return [];
-  return data as NarrativeSample[];
+  // 예전에 저장된 향후계획 글에는 서식 글자가 섞여 있습니다. 보여 주기 전에 지웁니다.
+  const seen = new Set<string>();
+  return (data as NarrativeSample[])
+    .map((n) => (n.section === "향후계획" ? { ...n, body: cleanFuturePlan(n.body) } : n))
+    .filter((n) => n.body.length >= 5)
+    // 같은 방문의 일지를 두 번 내려받아 올리면 같은 글이 두 번 저장됩니다. 같은 날·같은 칸·같은 글은 한 번만 보여 줍니다.
+    .filter((n) => {
+      const key = `${(n.document_date ?? "").slice(0, 10)}|${n.section}|${n.body.replace(/\s+/g, "")}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 /** 예문을 AI에게 보여 줄 글로 만듭니다. */
