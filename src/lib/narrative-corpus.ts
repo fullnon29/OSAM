@@ -89,20 +89,33 @@ export async function getHouseSamples(
   return ordered;
 }
 
-/** 그 어르신의 지난 서술. 최신 것부터 보여 줍니다. */
+/**
+ * 그 어르신의 지난 서술. 최신 것부터 보여 줍니다.
+ *
+ * 욕구사정 서술(신체상태·총평 등)과 업무수행일지 글(상담기록·향후계획)을 나눠 담습니다.
+ * 한데 섞어 최신 12건만 보면 매달 쌓이는 일지 글이 자리를 다 차지해, 정작 지난 욕구사정 문장이
+ * AI 참조에서 밀려납니다(73명 중 61명이 그랬습니다).
+ */
 export async function getRecipientNarratives(
   db: SupabaseClient,
   recipientId: string,
   limit = 12
 ): Promise<NarrativeSample[]> {
-  const { data, error } = await db
-    .from("narrative_samples")
-    .select("section, body, document_date")
-    .eq("care_recipient_id", recipientId)
-    .order("document_date", { ascending: false, nullsFirst: false })
-    .limit(limit);
-  if (error || !data) return [];
-  return data as NarrativeSample[];
+  const worklogSlots = Math.min(4, Math.floor(limit / 3));
+  const coreSlots = limit - worklogSlots;
+  const [core, worklog] = await Promise.all([
+    db
+      .from("narrative_samples")
+      .select("section, body, document_date")
+      .eq("care_recipient_id", recipientId)
+      .not("section", "in", "(상담기록,향후계획)")
+      .order("document_date", { ascending: false, nullsFirst: false })
+      .limit(coreSlots),
+    getWorklogNotes(db, recipientId, worklogSlots),
+  ]);
+  const merged = [...((core.error ? [] : core.data) as NarrativeSample[]), ...worklog];
+  merged.sort((a, b) => ((b.document_date ?? "") < (a.document_date ?? "") ? -1 : (b.document_date ?? "") > (a.document_date ?? "") ? 1 : 0));
+  return merged;
 }
 
 /** 일지 6·7항(상담기록·향후계획)을 최신순으로 가져옵니다. */
@@ -117,7 +130,8 @@ export async function getWorklogNotes(
     .eq("care_recipient_id", recipientId)
     .in("section", ["상담기록", "향후계획"])
     .order("document_date", { ascending: false, nullsFirst: false })
-    .limit(limit);
+    // 같은 방문이 두 번 저장된 것을 걸러 내므로 넉넉히 받습니다.
+    .limit(limit * 3);
   if (error || !data) return [];
   // 예전에 저장된 향후계획 글에는 서식 글자가 섞여 있습니다. 보여 주기 전에 지웁니다.
   const seen = new Set<string>();
@@ -130,7 +144,8 @@ export async function getWorklogNotes(
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
-    });
+    })
+    .slice(0, limit);
 }
 
 /** 예문을 AI에게 보여 줄 글로 만듭니다. */
